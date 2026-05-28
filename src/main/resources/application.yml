@@ -1,0 +1,53 @@
+server:
+  port: ${SERVER_PORT:8087}
+
+pay:
+  environment: ${PAY_ENVIRONMENT:local}
+
+spring:
+  application:
+    name: sbp-router-management
+  profiles:
+    default: local
+  config:
+    import:
+      - optional:configserver:${CONFIG_SERVER_URL:http://pay-config:8080}
+      - optional:vault://
+  datasource:
+    url: ${SBP_ROUTER_MANAGEMENT_DB_URL:jdbc:postgresql://localhost:5432/pay_admin?currentSchema=sbp_router_management}
+    username: ${SBP_ROUTER_MANAGEMENT_DB_USERNAME:pay_admin}
+    password: ${SBP_ROUTER_MANAGEMENT_DB_PASSWORD:}
+  flyway:
+    enabled: ${SBP_ROUTER_MANAGEMENT_FLYWAY_ENABLED:true}
+    schemas: sbp_router_management
+    default-schema: sbp_router_management
+  cloud:
+    config:
+      enabled: ${CONFIG_SERVER_ENABLED:false}
+      label: ${CONFIG_SERVER_LABEL:${pay.environment}}
+    vault:
+      enabled: ${VAULT_ENABLED:false}
+      kv:
+        backend: ${VAULT_KV_BACKEND:pay}
+        default-context: ""
+        application-name: ${VAULT_KV_CONTEXTS:${pay.environment}/${spring.application.name}-db-password}
+        profiles: []
+
+management:
+  endpoint:
+    health:
+      probes:
+        enabled: true
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+
+sbp-router-management:
+  service-name: ${SBP_ROUTER_MANAGEMENT_SERVICE_NAME:SBP Router Management}
