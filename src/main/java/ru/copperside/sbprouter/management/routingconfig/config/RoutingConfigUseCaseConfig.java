@@ -3,11 +3,13 @@ package ru.copperside.sbprouter.management.routingconfig.config;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import ru.copperside.sbprouter.management.routingconfig.application.DraftService;
 import ru.copperside.sbprouter.management.routingconfig.application.ExtractionRuleService;
 import ru.copperside.sbprouter.management.routingconfig.application.RoutingFlagService;
 import ru.copperside.sbprouter.management.routingconfig.application.TerminalRoutingConfigService;
 import ru.copperside.sbprouter.management.routingconfig.application.TkbPayListService;
 import ru.copperside.sbprouter.management.routingconfig.application.UpstreamService;
+import ru.copperside.sbprouter.management.routingconfig.application.port.out.DraftRepository;
 import ru.copperside.sbprouter.management.routingconfig.application.port.out.ExtractionRuleRepository;
 import ru.copperside.sbprouter.management.routingconfig.application.port.out.RoutingFlagRepository;
 import ru.copperside.sbprouter.management.routingconfig.application.port.out.TerminalRoutingConfigRepository;
@@ -47,5 +49,11 @@ public class RoutingConfigUseCaseConfig {
     @ConditionalOnBean(RoutingFlagRepository.class)
     RoutingFlagService routingFlagService(RoutingFlagRepository repository, Clock clock) {
         return new RoutingFlagService(repository, clock);
+    }
+
+    @Bean
+    @ConditionalOnBean(DraftRepository.class)
+    DraftService draftService(DraftRepository repository) {
+        return new DraftService(repository);
     }
 }
