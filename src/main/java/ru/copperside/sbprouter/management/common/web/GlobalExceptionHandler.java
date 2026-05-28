@@ -1,0 +1,56 @@
+package ru.copperside.sbprouter.management.common.web;
+
+import jakarta.validation.ConstraintViolationException;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.RestControllerAdvice;
+
+import java.time.Clock;
+import java.util.UUID;
+
+@RestControllerAdvice
+public class GlobalExceptionHandler {
+
+    private static final String TYPE_BASE = "https://contracts.newpay/errors/";
+
+    private final Clock clock;
+
+    public GlobalExceptionHandler(Clock clock) {
+        this.clock = clock;
+    }
+
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    ResponseEntity<ProblemEnvelope> handleBodyValidation(MethodArgumentNotValidException ex) {
+        return problem(HttpStatus.BAD_REQUEST, "VALIDATION_ERROR", "Validation failed", ex.getMessage(), null);
+    }
+
+    @ExceptionHandler(ConstraintViolationException.class)
+    ResponseEntity<ProblemEnvelope> handleConstraintValidation(ConstraintViolationException ex) {
+        return problem(HttpStatus.BAD_REQUEST, "VALIDATION_ERROR", "Validation failed", ex.getMessage(), null);
+    }
+
+    private ResponseEntity<ProblemEnvelope> problem(
+            HttpStatus status, String code, String title, String message, Object details) {
+        ProblemDetail detail = new ProblemDetail(
+                TYPE_BASE + code.toLowerCase().replace('_', '-'),
+                title,
+                status.value(),
+                code,
+                message,
+                details,
+                UUID.randomUUID().toString()
+        );
+        return ResponseEntity.status(status)
+                .contentType(MediaType.APPLICATION_PROBLEM_JSON)
+                .body(ProblemEnvelope.of(detail, clock));
+    }
+
+    private String messageWithoutCode(RuntimeException ex) {
+        String message = ex.getMessage();
+        int separator = message == null ? -1 : message.indexOf(": ");
+        return separator < 0 ? message : message.substring(separator + 2);
+    }
+}
