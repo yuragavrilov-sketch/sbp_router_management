@@ -5,9 +5,11 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import ru.copperside.sbprouter.management.routingconfig.application.ExtractionRuleService;
 import ru.copperside.sbprouter.management.routingconfig.application.TerminalRoutingConfigService;
+import ru.copperside.sbprouter.management.routingconfig.application.TkbPayListService;
 import ru.copperside.sbprouter.management.routingconfig.application.UpstreamService;
 import ru.copperside.sbprouter.management.routingconfig.application.port.out.ExtractionRuleRepository;
 import ru.copperside.sbprouter.management.routingconfig.application.port.out.TerminalRoutingConfigRepository;
+import ru.copperside.sbprouter.management.routingconfig.application.port.out.TkbPayListRepository;
 import ru.copperside.sbprouter.management.routingconfig.application.port.out.UpstreamRepository;
 
 import java.time.Clock;
@@ -31,5 +33,11 @@ public class RoutingConfigUseCaseConfig {
     @ConditionalOnBean(TerminalRoutingConfigRepository.class)
     TerminalRoutingConfigService terminalRoutingConfigService(TerminalRoutingConfigRepository repository, Clock clock) {
         return new TerminalRoutingConfigService(repository, clock);
+    }
+
+    @Bean
+    @ConditionalOnBean(TkbPayListRepository.class)
+    TkbPayListService tkbPayListService(TkbPayListRepository repository, Clock clock) {
+        return new TkbPayListService(repository, clock);
     }
 }
