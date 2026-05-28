@@ -38,15 +38,17 @@ class UpstreamServiceTest {
     void patchUpdatesExistingDraft() {
         Upstream created = service.create(new CreateUpstreamCommand("stub", "http://localhost/stub", null, null, null));
 
-        Upstream patched = service.patch(created.id(), new PatchUpstreamCommand(null, "http://localhost/stub2", null, null, null));
+        Upstream patched = service.patch(created.id(), new PatchUpstreamCommand("http://localhost/stub2", null, null, null));
 
         assertThat(patched.url()).isEqualTo("http://localhost/stub2");
         assertThat(patched.name()).isEqualTo("stub");
+        assertThat(patched.createdAt()).isEqualTo(created.createdAt());
+        assertThat(patched.updatedAt()).isAfterOrEqualTo(created.createdAt());
     }
 
     @Test
     void patchMissingThrowsNotFound() {
-        assertThatThrownBy(() -> service.patch(UUID.randomUUID(), new PatchUpstreamCommand(null, "x", null, null, null)))
+        assertThatThrownBy(() -> service.patch(UUID.randomUUID(), new PatchUpstreamCommand("x", null, null, null)))
                 .isInstanceOf(RoutingConfigProblemException.class)
                 .hasMessageContaining("UPSTREAM_NOT_FOUND");
     }
