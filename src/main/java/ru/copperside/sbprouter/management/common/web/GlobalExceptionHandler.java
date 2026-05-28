@@ -8,6 +8,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import ru.copperside.sbprouter.management.routingconfig.domain.RoutingConfigProblemException;
+import ru.copperside.sbprouter.management.routingmanifest.domain.RoutingManifestProblemException;
 
 import java.time.Clock;
 import java.util.UUID;
@@ -42,6 +43,24 @@ public class GlobalExceptionHandler {
             default -> HttpStatus.CONFLICT;
         };
         return problem(status, ex.code(), "Routing config problem", messageWithoutCode(ex), null);
+    }
+
+    @ExceptionHandler(RoutingManifestProblemException.class)
+    ResponseEntity<ProblemEnvelope> handleRoutingManifestProblem(RoutingManifestProblemException ex) {
+        HttpStatus status = switch (ex.code()) {
+            case "ROUTING_MANIFEST_NOT_FOUND" -> HttpStatus.NOT_FOUND;
+            case "VALIDATION_ERROR" -> HttpStatus.BAD_REQUEST;
+            default -> HttpStatus.CONFLICT;
+        };
+        return problem(status, ex.code(), titleForManifestProblem(ex.code()), messageWithoutCode(ex), ex.details());
+    }
+
+    private String titleForManifestProblem(String code) {
+        return switch (code) {
+            case "ROUTING_MANIFEST_CONFLICT" -> "Routing manifest conflict";
+            case "ROUTING_MANIFEST_NOT_FOUND" -> "Routing manifest not found";
+            default -> "Routing manifest problem";
+        };
     }
 
     private ResponseEntity<ProblemEnvelope> problem(
