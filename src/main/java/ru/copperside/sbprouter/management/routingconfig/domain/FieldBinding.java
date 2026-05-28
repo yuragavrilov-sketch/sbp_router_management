@@ -1,5 +1,8 @@
 package ru.copperside.sbprouter.management.routingconfig.domain;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+
+@JsonIgnoreProperties(ignoreUnknown = true)
 public record FieldBinding(String name, String parent, String key, String path) {
 
     public boolean hasParentKey() {

@@ -7,6 +7,7 @@ import org.springframework.boot.flyway.autoconfigure.FlywayAutoConfiguration;
 import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;
 import org.springframework.boot.jdbc.test.autoconfigure.JdbcTest;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.annotation.DirtiesContext;
 import ru.copperside.sbprouter.management.routingconfig.domain.ConfigStatus;
 import ru.copperside.sbprouter.management.routingconfig.domain.Upstream;
 import ru.copperside.sbprouter.management.support.PostgresTestSupport;
@@ -19,6 +20,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @JdbcTest
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @ImportAutoConfiguration(FlywayAutoConfiguration.class)
+@DirtiesContext
 class PostgresUpstreamRepositoryTest extends PostgresTestSupport {
 
     @Autowired
