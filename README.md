@@ -127,3 +127,14 @@ Contract: [../contracts/sbp-router-management](../contracts/sbp-router-managemen
 ```powershell
 mvn clean verify
 ```
+
+## Cycle-1 limitations
+
+1. **Per-entity `version` is not incremented on patch or publish.** The manifest's
+   `entity_version` for TKB-Pay entries and routing flags is recorded as `1` regardless
+   of the number of edits. Version tracking for individual entities is a future increment.
+
+2. **`routing_manifest_entities.payload_json` stores an entity-id index only.** The
+   authoritative manifest snapshot is `routing_manifests.payload_json`. The entity-level
+   `payload_json` column (`{"entityId":"…"}`) exists as a position index and is not a
+   full entity snapshot. These are intentional cycle-1 scope limits.

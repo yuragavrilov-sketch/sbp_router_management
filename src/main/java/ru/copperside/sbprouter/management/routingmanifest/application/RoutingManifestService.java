@@ -49,7 +49,9 @@ public class RoutingManifestService {
                 tkbPayList.findAll(), routingFlags.findAll());
         int version = manifests.nextVersion();
         RoutingManifest manifest = compiler.compile(version, prospective);
-        return manifests.publish(manifest, prospective);
+        return manifests.findLatest()
+                .filter(latest -> latest.checksum().equals(manifest.checksum()))
+                .orElseGet(() -> manifests.publish(manifest, prospective));
     }
 
     public PendingChanges pendingChanges() {

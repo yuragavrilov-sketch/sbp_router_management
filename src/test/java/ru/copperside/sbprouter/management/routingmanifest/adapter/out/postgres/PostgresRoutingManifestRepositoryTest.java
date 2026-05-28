@@ -6,6 +6,7 @@ import org.springframework.boot.autoconfigure.ImportAutoConfiguration;
 import org.springframework.boot.flyway.autoconfigure.FlywayAutoConfiguration;
 import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;
 import org.springframework.boot.jdbc.test.autoconfigure.JdbcTest;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.annotation.DirtiesContext;
 import ru.copperside.sbprouter.management.routingconfig.adapter.out.postgres.PostgresExtractionRuleRepository;
@@ -33,6 +34,7 @@ import java.util.List;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @JdbcTest
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
@@ -85,5 +87,79 @@ class PostgresRoutingManifestRepositoryTest extends PostgresTestSupport {
                 .extracting(Upstream::status).isEqualTo(ConfigStatus.ACTIVE);
         assertThat(manifests.latestVersion()).contains(1);
         assertThat(manifests.find(manifest.id())).isPresent();
+    }
+
+    @Test
+    void publishArchivesOldActiveAndActivatesNewDraftWithSameName() {
+        var upstreams = new PostgresUpstreamRepository(jdbc);
+        var extraction = new PostgresExtractionRuleRepository(jdbc);
+        var terminal = new PostgresTerminalRoutingConfigRepository(jdbc);
+        var tkb = new PostgresTkbPayListRepository(jdbc);
+        var flags = new PostgresRoutingFlagRepository(jdbc);
+        var manifests = new PostgresRoutingManifestRepository(jdbc);
+
+        // Seed an existing ACTIVE upstream with the same name that a draft override will replace.
+        UUID oldActiveId = UUID.randomUUID();
+        Upstream existingActive = new Upstream(oldActiveId, "infosrv", "http://infosrv-old/api",
+                10000, null, null, ConfigStatus.ACTIVE, false, 1, now, now);
+        upstreams.save(existingActive);
+
+        // Draft override for the same upstream name with new URL.
+        UUID draftId = UUID.randomUUID();
+        Upstream draftUpstream = new Upstream(draftId, "infosrv", "http://infosrv-new/api",
+                30000, 2, 500, ConfigStatus.DRAFT, false, 2, now, now);
+        upstreams.save(draftUpstream);
+
+        ExtractionRule rule = new ExtractionRule(UUID.randomUUID(), "ReqAuthPay",
+                List.of(new FieldBinding("rcvTspId", "PayProfile", "RcvTSPId", null)), List.of(),
+                ConfigStatus.DRAFT, false, 1, now, now);
+        extraction.save(rule);
+        TerminalRoutingConfig term = new TerminalRoutingConfig(UUID.randomUUID(), "rcvTspId", "rcvTspId",
+                "Pay", ConfigStatus.DRAFT, false, 1, now, now);
+        terminal.save(term);
+
+        ProspectiveConfig prospective = new ProspectiveConfigAssembler().assemble(
+                upstreams.findAll(), extraction.findAll(), terminal.findWorking().stream().toList(),
+                tkb.findAll(), flags.findAll());
+        RoutingManifest manifest = new RoutingManifestCompiler(clock).compile(manifests.nextVersion(), prospective);
+
+        manifests.publish(manifest, prospective);
+
+        // The old ACTIVE row must be ARCHIVED; the draft becomes ACTIVE.
+        assertThat(upstreams.findById(oldActiveId)).get()
+                .extracting(Upstream::status).isEqualTo(ConfigStatus.ARCHIVED);
+        assertThat(upstreams.findById(draftId)).get()
+                .extracting(Upstream::status).isEqualTo(ConfigStatus.ACTIVE);
+    }
+
+    @Test
+    void republishSameChecksumIsBlockedByUniqueConstraint() {
+        var upstreams = new PostgresUpstreamRepository(jdbc);
+        var extraction = new PostgresExtractionRuleRepository(jdbc);
+        var terminal = new PostgresTerminalRoutingConfigRepository(jdbc);
+        var tkb = new PostgresTkbPayListRepository(jdbc);
+        var flags = new PostgresRoutingFlagRepository(jdbc);
+        var manifests = new PostgresRoutingManifestRepository(jdbc);
+
+        upstreams.save(new Upstream(UUID.randomUUID(), "infosrv", "http://infosrv/api",
+                30000, null, null, ConfigStatus.DRAFT, false, 1, now, now));
+        extraction.save(new ExtractionRule(UUID.randomUUID(), "ReqAuthPay",
+                List.of(new FieldBinding("rcvTspId", "PayProfile", "RcvTSPId", null)), List.of(),
+                ConfigStatus.DRAFT, false, 1, now, now));
+        terminal.save(new TerminalRoutingConfig(UUID.randomUUID(), "rcvTspId", "rcvTspId",
+                "Pay", ConfigStatus.DRAFT, false, 1, now, now));
+
+        ProspectiveConfig prospective = new ProspectiveConfigAssembler().assemble(
+                upstreams.findAll(), extraction.findAll(), terminal.findWorking().stream().toList(),
+                tkb.findAll(), flags.findAll());
+        RoutingManifest first = new RoutingManifestCompiler(clock).compile(manifests.nextVersion(), prospective);
+        manifests.publish(first, prospective);
+
+        // Build a second manifest with the SAME prospective config → identical checksum.
+        RoutingManifest duplicate = new RoutingManifestCompiler(clock).compile(manifests.nextVersion(), prospective);
+
+        // The DB unique constraint on checksum must block insertion.
+        assertThatThrownBy(() -> manifests.publish(duplicate, prospective))
+                .isInstanceOf(DataIntegrityViolationException.class);
     }
 }

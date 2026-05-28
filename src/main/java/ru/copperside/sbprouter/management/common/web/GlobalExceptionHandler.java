@@ -1,6 +1,7 @@
 package ru.copperside.sbprouter.management.common.web;
 
 import jakarta.validation.ConstraintViolationException;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -43,6 +44,12 @@ public class GlobalExceptionHandler {
             default -> HttpStatus.CONFLICT;
         };
         return problem(status, ex.code(), "Routing config problem", messageWithoutCode(ex), null);
+    }
+
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    ResponseEntity<ProblemEnvelope> handleDataIntegrityViolation(DataIntegrityViolationException ex) {
+        return problem(HttpStatus.CONFLICT, "ROUTING_MANIFEST_CONFLICT",
+                "Routing manifest conflict", "Concurrent publish conflict", null);
     }
 
     @ExceptionHandler(RoutingManifestProblemException.class)
