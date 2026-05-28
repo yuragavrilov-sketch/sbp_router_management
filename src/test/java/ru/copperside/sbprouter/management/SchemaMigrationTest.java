@@ -1,0 +1,36 @@
+package ru.copperside.sbprouter.management;
+
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.ImportAutoConfiguration;
+import org.springframework.boot.flyway.autoconfigure.FlywayAutoConfiguration;
+import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;
+import org.springframework.boot.jdbc.test.autoconfigure.JdbcTest;
+import org.springframework.jdbc.core.JdbcTemplate;
+import ru.copperside.sbprouter.management.support.PostgresTestSupport;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+@JdbcTest
+@AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
+@ImportAutoConfiguration(FlywayAutoConfiguration.class)
+class SchemaMigrationTest extends PostgresTestSupport {
+
+    @Autowired
+    JdbcTemplate jdbc;
+
+    @Test
+    void migratesAllTables() {
+        Integer tables = jdbc.queryForObject(
+                "select count(*) from information_schema.tables where table_schema = 'sbp_router_management'",
+                Integer.class);
+        assertThat(tables).isGreaterThanOrEqualTo(7);
+    }
+
+    @Test
+    void enforcesSingleActiveTerminalConfig() {
+        assertThat(jdbc.queryForObject(
+                "select count(*) from pg_indexes where indexname = 'terminal_config_single_active_uk'",
+                Integer.class)).isEqualTo(1);
+    }
+}
