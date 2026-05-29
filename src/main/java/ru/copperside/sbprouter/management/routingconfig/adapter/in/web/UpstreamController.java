@@ -1,5 +1,6 @@
 package ru.copperside.sbprouter.management.routingconfig.adapter.in.web;
 
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -45,5 +46,10 @@ public class UpstreamController {
         return ApiResponse.success(UpstreamResponse.from(service.patch(id, new PatchUpstreamCommand(
                 request.url(), request.timeoutMs(),
                 request.retryMaxAttempts(), request.retryBackoffMs()))), clock);
+    }
+
+    @DeleteMapping("/{id}")
+    public ApiResponse<UpstreamResponse> remove(@PathVariable UUID id) {
+        return ApiResponse.success(UpstreamResponse.from(service.markRemoval(id)), clock);
     }
 }

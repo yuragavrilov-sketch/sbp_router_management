@@ -53,6 +53,25 @@ class UpstreamServiceTest {
                 .hasMessageContaining("UPSTREAM_NOT_FOUND");
     }
 
+    @Test
+    void markRemovalSetsRemovalFlag() {
+        Upstream created = service.create(new CreateUpstreamCommand("stub", "http://localhost/stub", null, null, null));
+
+        Upstream removed = service.markRemoval(created.id());
+
+        assertThat(removed.removal()).isTrue();
+        assertThat(removed.id()).isEqualTo(created.id());
+        assertThat(removed.name()).isEqualTo("stub");
+        assertThat(removed.status()).isEqualTo(ConfigStatus.DRAFT);
+    }
+
+    @Test
+    void markRemovalMissingThrowsNotFound() {
+        assertThatThrownBy(() -> service.markRemoval(UUID.randomUUID()))
+                .isInstanceOf(RoutingConfigProblemException.class)
+                .hasMessageContaining("UPSTREAM_NOT_FOUND");
+    }
+
     static class InMemoryUpstreamRepository implements UpstreamRepository {
         final List<Upstream> saved = new ArrayList<>();
 

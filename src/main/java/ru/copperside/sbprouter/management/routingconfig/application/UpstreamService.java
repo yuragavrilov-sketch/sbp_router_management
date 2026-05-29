@@ -52,4 +52,13 @@ public class UpstreamService {
                 Instant.now(clock));
         return repository.save(patched);
     }
+
+    public Upstream markRemoval(UUID id) {
+        Upstream existing = repository.findById(id)
+                .orElseThrow(() -> new RoutingConfigProblemException("UPSTREAM_NOT_FOUND", "Upstream not found"));
+        return repository.save(new Upstream(
+                existing.id(), existing.name(), existing.url(), existing.timeoutMs(),
+                existing.retryMaxAttempts(), existing.retryBackoffMs(),
+                existing.status(), true, existing.version(), existing.createdAt(), Instant.now(clock)));
+    }
 }
