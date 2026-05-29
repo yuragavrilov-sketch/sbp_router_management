@@ -14,7 +14,9 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+import ru.copperside.sbprouter.management.routingconfig.domain.RoutingConfigProblemException;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class ExtractionRuleServiceTest {
 
@@ -33,6 +35,27 @@ class ExtractionRuleServiceTest {
         assertThat(rule.messageType()).isEqualTo("ReqAuthPay");
         assertThat(rule.routingFields()).hasSize(1);
         assertThat(rule.extraFields()).hasSize(1);
+    }
+
+    @Test
+    void markRemovalSetsRemovalFlag() {
+        ExtractionRule created = service.create(new SaveExtractionRuleCommand(
+                "ReqAuthPay",
+                List.of(new FieldBinding("terminalName", "PayProfile", "Tran.TermName", null)),
+                List.of()));
+
+        ExtractionRule removed = service.markRemoval(created.id());
+
+        assertThat(removed.removal()).isTrue();
+        assertThat(removed.id()).isEqualTo(created.id());
+        assertThat(removed.messageType()).isEqualTo("ReqAuthPay");
+    }
+
+    @Test
+    void markRemovalMissingThrowsNotFound() {
+        assertThatThrownBy(() -> service.markRemoval(UUID.randomUUID()))
+                .isInstanceOf(RoutingConfigProblemException.class)
+                .hasMessageContaining("EXTRACTION_RULE_NOT_FOUND");
     }
 
     static class InMemoryRepo implements ExtractionRuleRepository {

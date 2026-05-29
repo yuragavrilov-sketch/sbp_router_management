@@ -46,4 +46,12 @@ public class ExtractionRuleService {
                 command.extraFields() != null ? command.extraFields() : existing.extraFields(),
                 existing.status(), existing.removal(), existing.version(), existing.createdAt(), Instant.now(clock)));
     }
+
+    public ExtractionRule markRemoval(UUID id) {
+        ExtractionRule existing = repository.findById(id)
+                .orElseThrow(() -> new RoutingConfigProblemException("EXTRACTION_RULE_NOT_FOUND", "Extraction rule not found"));
+        return repository.save(new ExtractionRule(
+                existing.id(), existing.messageType(), existing.routingFields(), existing.extraFields(),
+                existing.status(), true, existing.version(), existing.createdAt(), Instant.now(clock)));
+    }
 }

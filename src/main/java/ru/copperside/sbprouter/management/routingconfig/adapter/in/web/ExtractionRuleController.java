@@ -1,5 +1,6 @@
 package ru.copperside.sbprouter.management.routingconfig.adapter.in.web;
 
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -42,5 +43,10 @@ public class ExtractionRuleController {
     public ApiResponse<ExtractionRuleResponse> patch(@PathVariable UUID id, @RequestBody ExtractionRuleRequest request) {
         return ApiResponse.success(ExtractionRuleResponse.from(service.patch(id,
                 new SaveExtractionRuleCommand(request.messageType(), request.routingFields(), request.extraFields()))), clock);
+    }
+
+    @DeleteMapping("/{id}")
+    public ApiResponse<ExtractionRuleResponse> remove(@PathVariable UUID id) {
+        return ApiResponse.success(ExtractionRuleResponse.from(service.markRemoval(id)), clock);
     }
 }
