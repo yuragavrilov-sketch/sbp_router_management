@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import ru.copperside.sbprouter.management.routingconfig.domain.RoutingConfigProblemException;
 import ru.copperside.sbprouter.management.routingmanifest.domain.RoutingManifestProblemException;
+import ru.copperside.sbprouter.management.traffic.domain.TrafficTransactionProblemException;
 
 import java.time.Clock;
 import java.util.UUID;
@@ -60,6 +61,13 @@ public class GlobalExceptionHandler {
             default -> HttpStatus.CONFLICT;
         };
         return problem(status, ex.code(), titleForManifestProblem(ex.code()), messageWithoutCode(ex), ex.details());
+    }
+
+    @ExceptionHandler(TrafficTransactionProblemException.class)
+    ResponseEntity<ProblemEnvelope> handleTrafficProblem(TrafficTransactionProblemException ex) {
+        HttpStatus status = ex.code().equals("TRAFFIC_TRANSACTION_NOT_FOUND")
+                ? HttpStatus.NOT_FOUND : HttpStatus.BAD_REQUEST;
+        return problem(status, ex.code(), "Traffic transaction problem", messageWithoutCode(ex), null);
     }
 
     private String titleForManifestProblem(String code) {
