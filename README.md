@@ -70,7 +70,9 @@ The service manages five configuration entity types via draft→publish lifecycl
 - **Routing flags** — key/value configuration flags.
 
 Each entity supports `list`, `create`, and `patch` operations. Create and patch
-operate on drafts. `GET /internal/v1/sbp-router-management/routing-config/pending-changes`
+operate on drafts. `DELETE /internal/v1/sbp-router-management/upstreams/{id}` and
+`DELETE …/extraction-rules/{id}` mark an active entry for removal (`removal=true`),
+mirroring the existing TKB-Pay delete behaviour. `GET /internal/v1/sbp-router-management/routing-config/pending-changes`
 returns all `DRAFT` and `removal=true` entries across all entity types.
 
 `POST /internal/v1/sbp-router-management/routing-config/discard-drafts` discards
