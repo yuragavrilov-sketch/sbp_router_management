@@ -46,7 +46,9 @@ class TrafficControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.total").value(1))
                 .andExpect(jsonPath("$.data.items[0].correlationId").value("corr-1"))
-                .andExpect(jsonPath("$.data.items[0].latencyMs").value(40));
+                .andExpect(jsonPath("$.data.items[0].latencyMs").value(40))
+                .andExpect(jsonPath("$.data.items[0].requestXml").doesNotExist())
+                .andExpect(jsonPath("$.data.items[0].responseXml").doesNotExist());
     }
 
     @Test

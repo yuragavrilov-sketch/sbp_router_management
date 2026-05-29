@@ -85,4 +85,22 @@ class PostgresTrafficQueryRepositoryTest extends PostgresTestSupport {
         assertThat(s.latencyP95()).isBetween(40L, 60L);
         assertThat(s.throughputPerMinute()).isNotEmpty();
     }
+
+    @Test
+    void statsWithOnlyPendingRowsHasNullLatency() {
+        PostgresTrafficWriteRepository w = new PostgresTrafficWriteRepository(jdbc);
+        // Insert a single request-only partial (PENDING, response_at null)
+        w.upsert(new TrafficTransaction("pend-1", "tx-pend", "ReqAuthPay", "owner-Z", "route-z", null, null,
+                TrafficStatus.PENDING, t0, null, null, "local", "<req-pend/>", null, t0, t0));
+
+        PostgresTrafficQueryRepository repo = new PostgresTrafficQueryRepository(jdbc);
+        TrafficStats s = repo.stats(t0.minusSeconds(60), t0.plusSeconds(60));
+
+        assertThat(s.total()).isEqualTo(1);
+        assertThat(s.pending()).isEqualTo(1);
+        assertThat(s.responded()).isEqualTo(0);
+        assertThat(s.latencyAvg()).isNull();
+        assertThat(s.latencyP95()).isNull();
+        assertThat(s.latencyP99()).isNull();
+    }
 }
