@@ -24,4 +24,21 @@ public class TrafficUseCaseConfig {
     TrafficQueryService trafficQueryService(TrafficQueryRepository repository, Clock clock) {
         return new TrafficQueryService(repository, clock);
     }
+
+    @Bean
+    @ConditionalOnBean(ru.copperside.sbprouter.management.traffic.application.port.out.TrafficRetentionRepository.class)
+    ru.copperside.sbprouter.management.traffic.application.TrafficRetentionService trafficRetentionService(
+            ru.copperside.sbprouter.management.traffic.application.port.out.TrafficRetentionRepository repository,
+            Clock clock,
+            TrafficProperties properties) {
+        return new ru.copperside.sbprouter.management.traffic.application.TrafficRetentionService(
+                repository, clock, properties.retentionDays());
+    }
+
+    @Bean
+    @ConditionalOnBean(ru.copperside.sbprouter.management.traffic.application.TrafficRetentionService.class)
+    ru.copperside.sbprouter.management.traffic.application.TrafficRetentionJob trafficRetentionJob(
+            ru.copperside.sbprouter.management.traffic.application.TrafficRetentionService service) {
+        return new ru.copperside.sbprouter.management.traffic.application.TrafficRetentionJob(service);
+    }
 }
