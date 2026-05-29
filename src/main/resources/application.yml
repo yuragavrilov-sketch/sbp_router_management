@@ -51,6 +51,9 @@ springdoc:
 
 sbp-router-management:
   service-name: ${SBP_ROUTER_MANAGEMENT_SERVICE_NAME:SBP Router Management}
+  internal-admin:
+    api-key: ${INTERNAL_ADMIN_API_KEY:}
+    header-name: ${INTERNAL_ADMIN_HEADER_NAME:X-Internal-Admin-Key}
 
 traffic:
   retention-days: ${TRAFFIC_RETENTION_DAYS:30}
