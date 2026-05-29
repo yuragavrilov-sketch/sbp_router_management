@@ -51,3 +51,11 @@ springdoc:
 
 sbp-router-management:
   service-name: ${SBP_ROUTER_MANAGEMENT_SERVICE_NAME:SBP Router Management}
+
+traffic:
+  retention-days: ${TRAFFIC_RETENTION_DAYS:30}
+  kafka:
+    enabled: ${KAFKA_ENABLED:false}
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    topic: ${KAFKA_TOPIC:sbp-router-traffic}
+    group-id: ${KAFKA_GROUP_ID:sbp-router-management}

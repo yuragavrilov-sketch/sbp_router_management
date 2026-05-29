@@ -35,4 +35,13 @@ class SchemaMigrationTest extends PostgresTestSupport {
                 "select count(*) from pg_indexes where indexname = 'terminal_config_single_active_uk'",
                 Integer.class)).isEqualTo(1);
     }
+
+    @Test
+    void migratesTrafficTransactionsTable() {
+        Integer count = jdbc.queryForObject(
+                "select count(*) from information_schema.tables " +
+                        "where table_schema = 'sbp_router_management' and table_name = 'traffic_transactions'",
+                Integer.class);
+        assertThat(count).isEqualTo(1);
+    }
 }
