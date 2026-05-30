@@ -13,6 +13,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
 
 @SuppressWarnings("unchecked")
@@ -29,7 +30,8 @@ class KafkaManifestPublishedNotifierTest {
         notifier.published(manifest);
 
         ArgumentCaptor<byte[]> payload = ArgumentCaptor.forClass(byte[].class);
-        verify(template).send(eq("sbp-router-manifest"), eq("7"), payload.capture());
+        // send runs on a fire-and-forget daemon thread → await it
+        verify(template, timeout(2000)).send(eq("sbp-router-manifest"), eq("7"), payload.capture());
         String json = new String(payload.getValue(), StandardCharsets.UTF_8);
         assertThat(json).contains("\"version\":7").contains("\"checksum\":\"sha256:abc123\"");
     }
