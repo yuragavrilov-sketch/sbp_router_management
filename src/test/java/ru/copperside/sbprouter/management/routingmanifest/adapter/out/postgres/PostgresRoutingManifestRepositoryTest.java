@@ -23,6 +23,7 @@ import ru.copperside.sbprouter.management.routingconfig.domain.Upstream;
 import ru.copperside.sbprouter.management.routingmanifest.application.ProspectiveConfigAssembler;
 import ru.copperside.sbprouter.management.routingmanifest.application.RoutingManifestCompiler;
 import ru.copperside.sbprouter.management.routingmanifest.application.RoutingManifestService;
+import ru.copperside.sbprouter.management.routingmanifest.application.port.out.ManifestPublishedNotifier;
 import ru.copperside.sbprouter.management.routingmanifest.domain.ProspectiveConfig;
 import ru.copperside.sbprouter.management.routingmanifest.domain.RoutingManifest;
 import ru.copperside.sbprouter.management.support.PostgresTestSupport;
@@ -30,6 +31,7 @@ import ru.copperside.sbprouter.management.support.PostgresTestSupport;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -169,7 +171,7 @@ class PostgresRoutingManifestRepositoryTest extends PostgresTestSupport {
     }
 
     @Test
-    void serviceReturnsLatestWhenConfigUnchanged() {
+    void serviceEmitsEventOnlyOnNewVersionAndStaysIdempotent() {
         var upstreams = new PostgresUpstreamRepository(jdbc);
         var extraction = new PostgresExtractionRuleRepository(jdbc);
         var terminal = new PostgresTerminalRoutingConfigRepository(jdbc);
@@ -185,14 +187,18 @@ class PostgresRoutingManifestRepositoryTest extends PostgresTestSupport {
         terminal.save(new TerminalRoutingConfig(UUID.randomUUID(), "rcvTspId", "rcvTspId",
                 "Pay", ConfigStatus.DRAFT, false, 1, now, now));
 
+        var notified = new ArrayList<RoutingManifest>();
+        ManifestPublishedNotifier notifier = notified::add;
         RoutingManifestService service = new RoutingManifestService(
                 upstreams, extraction, terminal, tkb, flags, manifests,
-                new ProspectiveConfigAssembler(), new RoutingManifestCompiler(clock));
+                new ProspectiveConfigAssembler(), new RoutingManifestCompiler(clock), notifier);
 
         RoutingManifest v1 = service.publish();
-        RoutingManifest again = service.publish(); // no config change between publishes
+        RoutingManifest again = service.publish(); // no config change
 
         assertThat(again.version()).isEqualTo(v1.version());
         assertThat(jdbc.queryForObject("select count(*) from routing_manifests", Integer.class)).isEqualTo(1);
+        assertThat(notified).hasSize(1); // emitted only for the genuinely new publish
+        assertThat(notified.get(0).version()).isEqualTo(v1.version());
     }
 }

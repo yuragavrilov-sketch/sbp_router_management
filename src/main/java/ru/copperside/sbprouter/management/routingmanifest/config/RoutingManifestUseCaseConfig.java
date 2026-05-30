@@ -1,6 +1,7 @@
 package ru.copperside.sbprouter.management.routingmanifest.config;
 
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import ru.copperside.sbprouter.management.routingconfig.application.port.out.ExtractionRuleRepository;
@@ -11,6 +12,7 @@ import ru.copperside.sbprouter.management.routingconfig.application.port.out.Ups
 import ru.copperside.sbprouter.management.routingmanifest.application.ProspectiveConfigAssembler;
 import ru.copperside.sbprouter.management.routingmanifest.application.RoutingManifestCompiler;
 import ru.copperside.sbprouter.management.routingmanifest.application.RoutingManifestService;
+import ru.copperside.sbprouter.management.routingmanifest.application.port.out.ManifestPublishedNotifier;
 import ru.copperside.sbprouter.management.routingmanifest.application.port.out.RoutingManifestRepository;
 
 import java.time.Clock;
@@ -29,6 +31,12 @@ public class RoutingManifestUseCaseConfig {
     }
 
     @Bean
+    @ConditionalOnMissingBean(ManifestPublishedNotifier.class)
+    ManifestPublishedNotifier noopManifestPublishedNotifier() {
+        return ManifestPublishedNotifier.NOOP;
+    }
+
+    @Bean
     @ConditionalOnBean(RoutingManifestRepository.class)
     RoutingManifestService routingManifestService(
             UpstreamRepository upstreams,
@@ -38,8 +46,9 @@ public class RoutingManifestUseCaseConfig {
             RoutingFlagRepository routingFlags,
             RoutingManifestRepository manifests,
             ProspectiveConfigAssembler assembler,
-            RoutingManifestCompiler compiler) {
+            RoutingManifestCompiler compiler,
+            ManifestPublishedNotifier notifier) {
         return new RoutingManifestService(upstreams, extractionRules, terminalConfig, tkbPayList,
-                routingFlags, manifests, assembler, compiler);
+                routingFlags, manifests, assembler, compiler, notifier);
     }
 }

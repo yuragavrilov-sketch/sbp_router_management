@@ -6,11 +6,13 @@ import ru.copperside.sbprouter.management.routingconfig.application.port.out.Ter
 import ru.copperside.sbprouter.management.routingconfig.application.port.out.TkbPayListRepository;
 import ru.copperside.sbprouter.management.routingconfig.application.port.out.UpstreamRepository;
 import ru.copperside.sbprouter.management.routingmanifest.application.port.out.RoutingManifestRepository;
+import ru.copperside.sbprouter.management.routingmanifest.application.port.out.ManifestPublishedNotifier;
 import ru.copperside.sbprouter.management.routingmanifest.domain.PendingChanges;
 import ru.copperside.sbprouter.management.routingmanifest.domain.ProspectiveConfig;
 import ru.copperside.sbprouter.management.routingmanifest.domain.RoutingManifest;
 import ru.copperside.sbprouter.management.routingmanifest.domain.RoutingManifestProblemException;
 
+import java.util.Optional;
 import java.util.UUID;
 
 public class RoutingManifestService {
@@ -23,6 +25,7 @@ public class RoutingManifestService {
     private final RoutingManifestRepository manifests;
     private final ProspectiveConfigAssembler assembler;
     private final RoutingManifestCompiler compiler;
+    private final ManifestPublishedNotifier notifier;
 
     public RoutingManifestService(
             UpstreamRepository upstreams,
@@ -32,7 +35,8 @@ public class RoutingManifestService {
             RoutingFlagRepository routingFlags,
             RoutingManifestRepository manifests,
             ProspectiveConfigAssembler assembler,
-            RoutingManifestCompiler compiler) {
+            RoutingManifestCompiler compiler,
+            ManifestPublishedNotifier notifier) {
         this.upstreams = upstreams;
         this.extractionRules = extractionRules;
         this.terminalConfig = terminalConfig;
@@ -41,6 +45,7 @@ public class RoutingManifestService {
         this.manifests = manifests;
         this.assembler = assembler;
         this.compiler = compiler;
+        this.notifier = notifier;
     }
 
     public RoutingManifest publish() {
@@ -49,9 +54,13 @@ public class RoutingManifestService {
                 tkbPayList.findAll(), routingFlags.findAll());
         int version = manifests.nextVersion();
         RoutingManifest manifest = compiler.compile(version, prospective);
-        return manifests.findLatest()
-                .filter(latest -> latest.checksum().equals(manifest.checksum()))
-                .orElseGet(() -> manifests.publish(manifest, prospective));
+        Optional<RoutingManifest> latest = manifests.findLatest();
+        if (latest.filter(l -> l.checksum().equals(manifest.checksum())).isPresent()) {
+            return latest.get();
+        }
+        RoutingManifest published = manifests.publish(manifest, prospective);
+        notifier.published(published);
+        return published;
     }
 
     public PendingChanges pendingChanges() {
