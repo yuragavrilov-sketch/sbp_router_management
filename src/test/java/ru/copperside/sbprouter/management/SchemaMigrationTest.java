@@ -37,6 +37,13 @@ class SchemaMigrationTest extends PostgresTestSupport {
     }
 
     @Test
+    void dropsRoutingManifestChecksumUniqueConstraint() {
+        assertThat(jdbc.queryForObject(
+                "select count(*) from pg_constraint where conname = 'routing_manifests_checksum_uk'",
+                Integer.class)).isZero();
+    }
+
+    @Test
     void migratesTrafficTransactionsTable() {
         Integer count = jdbc.queryForObject(
                 "select count(*) from information_schema.tables " +
