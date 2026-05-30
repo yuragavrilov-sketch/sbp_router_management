@@ -6,7 +6,6 @@ import org.springframework.boot.autoconfigure.ImportAutoConfiguration;
 import org.springframework.boot.flyway.autoconfigure.FlywayAutoConfiguration;
 import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;
 import org.springframework.boot.jdbc.test.autoconfigure.JdbcTest;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.annotation.DirtiesContext;
 import ru.copperside.sbprouter.management.routingconfig.adapter.out.postgres.PostgresExtractionRuleRepository;
@@ -23,6 +22,7 @@ import ru.copperside.sbprouter.management.routingconfig.domain.TkbPayListEntry;
 import ru.copperside.sbprouter.management.routingconfig.domain.Upstream;
 import ru.copperside.sbprouter.management.routingmanifest.application.ProspectiveConfigAssembler;
 import ru.copperside.sbprouter.management.routingmanifest.application.RoutingManifestCompiler;
+import ru.copperside.sbprouter.management.routingmanifest.application.RoutingManifestService;
 import ru.copperside.sbprouter.management.routingmanifest.domain.ProspectiveConfig;
 import ru.copperside.sbprouter.management.routingmanifest.domain.RoutingManifest;
 import ru.copperside.sbprouter.management.support.PostgresTestSupport;
@@ -34,7 +34,6 @@ import java.util.List;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @JdbcTest
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
@@ -133,7 +132,7 @@ class PostgresRoutingManifestRepositoryTest extends PostgresTestSupport {
     }
 
     @Test
-    void republishSameChecksumIsBlockedByUniqueConstraint() {
+    void republishSameChecksumCreatesNewVersion() {
         var upstreams = new PostgresUpstreamRepository(jdbc);
         var extraction = new PostgresExtractionRuleRepository(jdbc);
         var terminal = new PostgresTerminalRoutingConfigRepository(jdbc);
@@ -155,11 +154,45 @@ class PostgresRoutingManifestRepositoryTest extends PostgresTestSupport {
         RoutingManifest first = new RoutingManifestCompiler(clock).compile(manifests.nextVersion(), prospective);
         manifests.publish(first, prospective);
 
-        // Build a second manifest with the SAME prospective config → identical checksum.
+        // A second manifest with the SAME prospective config → identical checksum, next version.
         RoutingManifest duplicate = new RoutingManifestCompiler(clock).compile(manifests.nextVersion(), prospective);
 
-        // The DB unique constraint on checksum must block insertion.
-        assertThatThrownBy(() -> manifests.publish(duplicate, prospective))
-                .isInstanceOf(DataIntegrityViolationException.class);
+        // After dropping the checksum unique constraint, this no longer throws.
+        manifests.publish(duplicate, prospective);
+
+        assertThat(manifests.findLatest()).isPresent()
+                .get().extracting(RoutingManifest::version).isEqualTo(2);
+        assertThat(duplicate.checksum()).isEqualTo(first.checksum());
+        Integer sameChecksumCount = jdbc.queryForObject(
+                "select count(*) from routing_manifests where checksum = ?", Integer.class, first.checksum());
+        assertThat(sameChecksumCount).isEqualTo(2);
+    }
+
+    @Test
+    void serviceReturnsLatestWhenConfigUnchanged() {
+        var upstreams = new PostgresUpstreamRepository(jdbc);
+        var extraction = new PostgresExtractionRuleRepository(jdbc);
+        var terminal = new PostgresTerminalRoutingConfigRepository(jdbc);
+        var tkb = new PostgresTkbPayListRepository(jdbc);
+        var flags = new PostgresRoutingFlagRepository(jdbc);
+        var manifests = new PostgresRoutingManifestRepository(jdbc);
+
+        upstreams.save(new Upstream(UUID.randomUUID(), "infosrv", "http://infosrv/api",
+                30000, null, null, ConfigStatus.DRAFT, false, 1, now, now));
+        extraction.save(new ExtractionRule(UUID.randomUUID(), "ReqAuthPay",
+                List.of(new FieldBinding("rcvTspId", "PayProfile", "RcvTSPId", null)), List.of(),
+                ConfigStatus.DRAFT, false, 1, now, now));
+        terminal.save(new TerminalRoutingConfig(UUID.randomUUID(), "rcvTspId", "rcvTspId",
+                "Pay", ConfigStatus.DRAFT, false, 1, now, now));
+
+        RoutingManifestService service = new RoutingManifestService(
+                upstreams, extraction, terminal, tkb, flags, manifests,
+                new ProspectiveConfigAssembler(), new RoutingManifestCompiler(clock));
+
+        RoutingManifest v1 = service.publish();
+        RoutingManifest again = service.publish(); // no config change between publishes
+
+        assertThat(again.version()).isEqualTo(v1.version());
+        assertThat(jdbc.queryForObject("select count(*) from routing_manifests", Integer.class)).isEqualTo(1);
     }
 }
