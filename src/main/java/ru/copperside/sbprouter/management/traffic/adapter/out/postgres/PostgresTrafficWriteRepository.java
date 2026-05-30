@@ -47,6 +47,9 @@ public class PostgresTrafficWriteRepository implements TrafficWriteRepository {
                         then (extract(epoch from (coalesce(excluded.response_at, tt.response_at)
                                                   - coalesce(excluded.request_at, tt.request_at))) * 1000)::bigint
                         else null end
+                where not (tt.status = 'RESPONDED'
+                       and tt.request_at  is not null
+                       and tt.response_at is not null)
                 """,
                 t.correlationId(), t.txId(), t.requestType(), t.terminalOwner(), t.route(),
                 t.upstream(), t.outcome(),
