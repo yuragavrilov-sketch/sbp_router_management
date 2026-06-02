@@ -1,5 +1,5 @@
 image:
-  repository: harbor.online.tkbbank.ru/tkbpay/sbp-router-management   # TODO: align with CI image path; tag injected by CI
+  repository: harbor.online.tkbbank.ru/tkbpay/sbp_router_management   # TODO: align with CI image path; tag injected by CI
 serviceAccount:
   name: test-adapters            # TODO: confirm SA
 vault:
