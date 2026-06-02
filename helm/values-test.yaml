@@ -1,0 +1,73 @@
+image:
+  repository: harbor.online.tkbbank.ru/tkbpay/sbp-router-management   # TODO: align with CI image path; tag injected by CI
+serviceAccount:
+  name: test-adapters            # TODO: confirm SA
+vault:
+  enabled: false
+replicaCount: 1
+
+# Internal admin service (called by sbp-router and the BFF/front). No external ingress.
+ingress:
+  enabled: false
+
+ports:
+  - containerPort: 8080
+service:
+  name: sbp-router-management
+  port: 8080
+  targetPort: 8080
+
+livenessProbe:
+  initialDelaySeconds: 40
+  periodSeconds: 10
+  httpGet:
+    path: /actuator/health
+    port: 8080
+readinessProbe:
+  initialDelaySeconds: 30
+  periodSeconds: 10
+  httpGet:
+    path: /actuator/health
+    port: 8080
+
+extraEnvs:
+  - name: SPRING_PROFILES_ACTIVE
+    value: test
+  - name: SERVER_PORT
+    value: "8080"
+  - name: SPRING_CLOUD_VAULT_ENABLED
+    value: "false"
+  - name: CONFIG_SERVER_URL
+    value: "http://payconfig-server:8080"
+  - name: CONFIG_CLIENT_USERNAME
+    value: "configadmin"
+  # --- Postgres (corp) ---
+  - name: SBP_ROUTER_MANAGEMENT_DB_URL
+    value: "jdbc:postgresql://postgres.tkbbank.ru:5432/pay_admin?currentSchema=sbp_router_management"   # TODO: real corp Postgres host/db
+  - name: SBP_ROUTER_MANAGEMENT_DB_USERNAME
+    value: "pay_admin"                                                                                  # TODO: real DB user
+  # --- Kafka consumer ---
+  - name: KAFKA_ENABLED
+    value: "true"
+  - name: KAFKA_BOOTSTRAP_SERVERS
+    value: "kafka:9092"          # TODO: real corp Kafka bootstrap
+  - name: KAFKA_TOPIC
+    value: "sbp-router-traffic"
+  - name: KAFKA_GROUP_ID
+    value: "sbp-router-management"
+  # --- Secrets via pre-created k8s Secret `sbp-router-management-secret` ---
+  - name: CONFIG_CLIENT_PASSWORD
+    valueFrom:
+      secretKeyRef:
+        name: sbp-router-management-secret
+        key: CONFIG_CLIENT_PASSWORD
+  - name: SBP_ROUTER_MANAGEMENT_DB_PASSWORD
+    valueFrom:
+      secretKeyRef:
+        name: sbp-router-management-secret
+        key: SBP_ROUTER_MANAGEMENT_DB_PASSWORD
+  - name: INTERNAL_ADMIN_API_KEY
+    valueFrom:
+      secretKeyRef:
+        name: sbp-router-management-secret
+        key: INTERNAL_ADMIN_API_KEY
