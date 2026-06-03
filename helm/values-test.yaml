@@ -1,12 +1,17 @@
 image:
-  repository: harbor.online.tkbbank.ru/tkbpay/sbp_router_management   # TODO: align with CI image path; tag injected by CI
+  repository: harbor.online.tkbbank.ru/tkbpay/sbp_router_management   # must equal CI image path ($IMAGE_REGISTRY/$IMAGE_REGISTRY_PROJECT/$CI_PROJECT_NAME); tag injected by CI
 serviceAccount:
-  name: test-adapters            # TODO: confirm SA
+  create: true                   # dedicated SA, bound to the Vault k8s-auth role `sbp-router-management`
+  name: sbp-router-management
+imagePullSecrets:
+  enabled: true
+  name: test-adapters-ips        # namespace Harbor pull secret (the dedicated SA has none of its own)
 vault:
-  enabled: false
+  enabled: false                 # chart's own Vault integration off — the app is the Vault client (Spring Cloud Vault)
 replicaCount: 1
 
-# Internal admin service (called by sbp-router and the BFF/front). No external ingress.
+# Internal admin service (called by sbp-router for the routing manifest and by the BFF/front).
+# No external ingress.
 ingress:
   enabled: false
 
@@ -30,44 +35,48 @@ readinessProbe:
     path: /actuator/health
     port: 8080
 
+# NOTE: this service does NOT start without a reachable Postgres (Flyway + JPA run at boot). Deploy
+# only once the corp Postgres + schema `sbp_router_management` exist and the datasource is wired in
+# the config-repo file below.
 extraEnvs:
   - name: SPRING_PROFILES_ACTIVE
     value: test
   - name: SERVER_PORT
-    value: "8080"
-  - name: SPRING_CLOUD_VAULT_ENABLED
-    value: "false"
+    value: "8080"                # align with chart container port
+  # pay.environment drives the Vault KV contexts (pay/<env>/...) and the Config Server label; it must
+  # be an env var because config-data resolves before the active profile is applied (see ADR-0009).
+  - name: PAY_ENVIRONMENT
+    value: test
+  # Enable the external config-data clients (application.yml defaults both to false for standalone).
+  - name: VAULT_ENABLED
+    value: "true"
+  - name: CONFIG_SERVER_ENABLED
+    value: "true"
+  # --- Vault: application secrets read directly (Spring Cloud Vault, Kubernetes auth) ---
+  - name: SPRING_CLOUD_VAULT_URI
+    value: "https://vault.online.tkbbank.ru"
+  - name: SPRING_CLOUD_VAULT_AUTHENTICATION
+    value: "KUBERNETES"
+  - name: SPRING_CLOUD_VAULT_KUBERNETES_KUBERNETES_PATH
+    value: "payadmin-test"
+  - name: SPRING_CLOUD_VAULT_KUBERNETES_ROLE
+    value: "sbp-router-management"
+  # Vault holds the DB password and the shared internal-admin-key (two contexts).
+  - name: VAULT_KV_CONTEXTS
+    value: "test/sbp-router-management-db-password,test/sbp-router-management-internal-admin-key"
+  # --- Config Server (payconfig-server, Basic auth) ---
   - name: CONFIG_SERVER_URL
     value: "http://payconfig-server:8080"
   - name: CONFIG_CLIENT_USERNAME
     value: "configadmin"
-  # --- Postgres (corp) ---
-  - name: SBP_ROUTER_MANAGEMENT_DB_URL
-    value: "jdbc:postgresql://postgres.tkbbank.ru:5432/pay_admin?currentSchema=sbp_router_management"   # TODO: real corp Postgres host/db
-  - name: SBP_ROUTER_MANAGEMENT_DB_USERNAME
-    value: "pay_admin"                                                                                  # TODO: real DB user
-  # --- Kafka consumer ---
-  - name: KAFKA_ENABLED
-    value: "true"
-  - name: KAFKA_BOOTSTRAP_SERVERS
-    value: "kafka:9092"          # TODO: real corp Kafka bootstrap
-  - name: KAFKA_TOPIC
-    value: "sbp-router-traffic"
-  - name: KAFKA_GROUP_ID
-    value: "sbp-router-management"
-  # --- Secrets via pre-created k8s Secret `sbp-router-management-secret` ---
+  # Bootstrap credential (ADR-0009): from the SAME k8s Secret/key payconfig-server validates against.
   - name: CONFIG_CLIENT_PASSWORD
     valueFrom:
       secretKeyRef:
-        name: sbp-router-management-secret
-        key: CONFIG_CLIENT_PASSWORD
-  - name: SBP_ROUTER_MANAGEMENT_DB_PASSWORD
-    valueFrom:
-      secretKeyRef:
-        name: sbp-router-management-secret
-        key: SBP_ROUTER_MANAGEMENT_DB_PASSWORD
-  - name: INTERNAL_ADMIN_API_KEY
-    valueFrom:
-      secretKeyRef:
-        name: sbp-router-management-secret
-        key: INTERNAL_ADMIN_API_KEY
+        name: payconfig-server-secret
+        key: CONFIG_SERVER_PASSWORD
+  # Non-secret config (datasource url/username, Flyway, Kafka traffic consumer) comes from Config
+  # Server — config-repo branch `test`, file `sbp-router-management/application.yaml`. Not set here.
+  # Application secrets are read from Vault (see VAULT_KV_CONTEXTS):
+  #   pay/test/sbp-router-management-db-password        key spring.datasource.password
+  #   pay/test/sbp-router-management-internal-admin-key key sbp-router-management.internal-admin.api-key
