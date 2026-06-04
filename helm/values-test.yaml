@@ -1,5 +1,5 @@
 image:
-  repository: harbor.online.tkbbank.ru/tkbpay/sbp_router_management   # must equal CI image path ($IMAGE_REGISTRY/$IMAGE_REGISTRY_PROJECT/$CI_PROJECT_NAME); tag injected by CI
+  repository: harbor.online.tkbbank.ru/tkbpay/sbp-router-management   # = CI image path $IMAGE_REGISTRY/$IMAGE_REGISTRY_PROJECT/$CI_PROJECT_NAME (corp project slug uses hyphens); tag injected by CI
 serviceAccount:
   create: true                   # dedicated SA, bound to the Vault k8s-auth role `sbp-router-management`
   name: sbp-router-management
