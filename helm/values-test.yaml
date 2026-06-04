@@ -61,9 +61,10 @@ extraEnvs:
     value: "payadmin-test"
   - name: SPRING_CLOUD_VAULT_KUBERNETES_ROLE
     value: "sbp-router-management"
-  # Vault holds the DB password and the shared internal-admin-key (two contexts).
+  # Vault holds the DB password (per-service) and the shared contour internal-admin-key
+  # (pay/test/internal-admin-key, key pay.internal-admin-api-key, mapped via placeholder).
   - name: VAULT_KV_CONTEXTS
-    value: "test/sbp-router-management-db-password,test/sbp-router-management-internal-admin-key"
+    value: "test/sbp-router-management-db-password,test/internal-admin-key"
   # --- Config Server (payconfig-server, Basic auth) ---
   - name: CONFIG_SERVER_URL
     value: "http://payconfig-server:8080"
