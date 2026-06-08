@@ -1,0 +1,6 @@
+{
+  "bound_service_account_names": "sbp-router-management",
+  "bound_service_account_namespaces": "test",
+  "policies": "sbp-router-management-test",
+  "ttl": "1h"
+}

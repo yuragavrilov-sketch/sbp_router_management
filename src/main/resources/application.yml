@@ -32,7 +32,7 @@ spring:
       kv:
         backend: ${VAULT_KV_BACKEND:pay}
         default-context: ""
-        application-name: ${VAULT_KV_CONTEXTS:${pay.environment}/${spring.application.name}-db-password,${pay.environment}/sbp-router-admin-key}
+        application-name: ${VAULT_KV_CONTEXTS:${pay.environment}/${spring.application.name}-db-password,${pay.environment}/sbp-router-admin-key,${pay.environment}/payadmin-bff-internal-key}
         profiles: []
 
 management:
@@ -54,8 +54,12 @@ springdoc:
 sbp-router-management:
   service-name: ${SBP_ROUTER_MANAGEMENT_SERVICE_NAME:SBP Router Management}
   internal-admin:
-    api-key: ${sbp-router.admin-key:${INTERNAL_ADMIN_API_KEY:}}
     header-name: ${INTERNAL_ADMIN_HEADER_NAME:X-Internal-Admin-Key}
+    # Модель «один ключ = идентичность caller'а»: имя caller'а -> его ключ.
+    accepted-callers:
+      payadmin-bff: ${payadmin-bff.internal-key:}
+    # legacy общий ключ (dual-accept на время миграции на per-caller) — убрать после cutover.
+    api-key: ${sbp-router.admin-key:${INTERNAL_ADMIN_API_KEY:}}
 
 traffic:
   retention-days: ${TRAFFIC_RETENTION_DAYS:30}

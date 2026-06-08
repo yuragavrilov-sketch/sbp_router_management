@@ -9,6 +9,7 @@ import ru.copperside.sbprouter.management.config.InternalAdminSecurityProperties
 
 import java.time.Clock;
 import java.time.ZoneOffset;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
@@ -22,7 +23,12 @@ class InternalAdminApiKeyFilterTest {
 
     private OncePerRequestFilter filter(String configuredKey) {
         return new InternalAdminApiKeyFilter(
-                new InternalAdminSecurityProperties(configuredKey, "X-Internal-Admin-Key"), clock);
+                new InternalAdminSecurityProperties(configuredKey, Map.of(), "X-Internal-Admin-Key"), clock);
+    }
+
+    private OncePerRequestFilter filterWithCallers(Map<String, String> acceptedCallers) {
+        return new InternalAdminApiKeyFilter(
+                new InternalAdminSecurityProperties(null, acceptedCallers, "X-Internal-Admin-Key"), clock);
     }
 
     @Test
@@ -51,6 +57,32 @@ class InternalAdminApiKeyFilterTest {
         assertThat(res.getStatus()).isEqualTo(401);
         assertThat(res.getContentType()).contains("application/problem+json");
         assertThat(res.getContentAsString()).contains("UNAUTHORIZED");
+    }
+
+    @Test
+    void acceptedCallerKeyPassesThrough() throws Exception {
+        MockHttpServletRequest req = new MockHttpServletRequest("GET", "/internal/v1/sbp-router-management/upstreams");
+        req.addHeader("X-Internal-Admin-Key", "bff-secret");
+        MockHttpServletResponse res = new MockHttpServletResponse();
+        FilterChain chain = mock(FilterChain.class);
+
+        filterWithCallers(Map.of("payadmin-bff", "bff-secret")).doFilter(req, res, chain);
+
+        verify(chain, times(1)).doFilter(req, res);
+        assertThat(res.getStatus()).isEqualTo(200);
+    }
+
+    @Test
+    void unknownKeyRejectedWhenOnlyAcceptedCallersConfigured() throws Exception {
+        MockHttpServletRequest req = new MockHttpServletRequest("GET", "/internal/v1/sbp-router-management/upstreams");
+        req.addHeader("X-Internal-Admin-Key", "intruder");
+        MockHttpServletResponse res = new MockHttpServletResponse();
+        FilterChain chain = mock(FilterChain.class);
+
+        filterWithCallers(Map.of("payadmin-bff", "bff-secret")).doFilter(req, res, chain);
+
+        verify(chain, never()).doFilter(req, res);
+        assertThat(res.getStatus()).isEqualTo(401);
     }
 
     @Test
