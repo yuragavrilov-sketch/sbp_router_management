@@ -36,6 +36,7 @@ public class HeartbeatMapper {
                     instant(n, "startedAt"),
                     instant(n, "timestamp"),
                     text(n, "activeGroup"),
+                    n.path("routingConfigVersion").asLong(0),
                     stringList(n.path("groups")),
                     backends(n.path("backends")),
                     metrics(n.path("metrics")));

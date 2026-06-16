@@ -17,7 +17,7 @@ class HeartbeatMapperTest {
     void parsesFullHeartbeat() {
         String json = """
                 {"instanceId":"i-1","startedAt":"2026-06-16T09:00:00Z","timestamp":"2026-06-16T10:00:00Z",
-                 "activeGroup":"default","groups":["default","secondary"],
+                 "activeGroup":"default","routingConfigVersion":5,"groups":["default","secondary"],
                  "backends":[{"url":"http://a/api","group":"default","banned":false},
                              {"url":"http://b/api","group":"secondary","banned":true}],
                  "metrics":{"activeRequests":2,"requestsTotal":10,"upstreamErrorsTotal":1,
@@ -30,6 +30,7 @@ class HeartbeatMapperTest {
         assertThat(ri.startedAt()).isEqualTo(Instant.parse("2026-06-16T09:00:00Z"));
         assertThat(ri.lastHeartbeat()).isEqualTo(Instant.parse("2026-06-16T10:00:00Z"));
         assertThat(ri.activeGroup()).isEqualTo("default");
+        assertThat(ri.routingConfigVersion()).isEqualTo(5L);
         assertThat(ri.groups()).containsExactly("default", "secondary");
         assertThat(ri.backends()).hasSize(2);
         assertThat(ri.backends().get(1).banned()).isTrue();

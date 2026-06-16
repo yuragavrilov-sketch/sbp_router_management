@@ -12,6 +12,7 @@ public record RouterInstance(
         Instant startedAt,
         Instant lastHeartbeat,
         String activeGroup,
+        long routingConfigVersion,
         List<String> groups,
         List<RouterBackend> backends,
         RouterMetrics metrics

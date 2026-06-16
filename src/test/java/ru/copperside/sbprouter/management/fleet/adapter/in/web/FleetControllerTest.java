@@ -40,6 +40,7 @@ class FleetControllerTest {
                 .andExpect(jsonPath("$.data.routers[1].instanceId").value("up-1"))
                 .andExpect(jsonPath("$.data.routers[1].status").value("UP"))
                 .andExpect(jsonPath("$.data.routers[1].activeGroup").value("default"))
+                .andExpect(jsonPath("$.data.routers[1].routingConfigVersion").value(7))
                 .andExpect(jsonPath("$.data.routers[1].backends[0].url").value("http://a/api"));
     }
 
@@ -50,11 +51,11 @@ class FleetControllerTest {
             FleetRegistry r = new FleetRegistry();
             Instant now = Instant.now();
             r.record(new RouterInstance("up-1", now.minusSeconds(120), now.minusSeconds(5), "default",
-                    List.of("default"),
+                    7L, List.of("default"),
                     List.of(new RouterInstance.RouterBackend("http://a/api", "default", false)),
                     new RouterInstance.RouterMetrics(1, 5, 0, 10, 5, 40, 100)));
             r.record(new RouterInstance("stale-1", now.minusSeconds(600), now.minusSeconds(300), "default",
-                    List.of("default"), List.of(),
+                    0L, List.of("default"), List.of(),
                     new RouterInstance.RouterMetrics(0, 0, 0, 0, 0, 0, 0)));
             return r;
         }

@@ -12,6 +12,7 @@ public record RouterInstanceResponse(
         Instant startedAt,
         Instant lastHeartbeat,
         String activeGroup,
+        long routingConfigVersion,
         List<String> groups,
         List<RouterInstance.RouterBackend> backends,
         RouterInstance.RouterMetrics metrics
@@ -20,6 +21,6 @@ public record RouterInstanceResponse(
         boolean up = i.lastHeartbeat() != null && i.lastHeartbeat().isAfter(now.minus(ttl));
         return new RouterInstanceResponse(
                 i.instanceId(), up ? "UP" : "STALE", i.startedAt(), i.lastHeartbeat(),
-                i.activeGroup(), i.groups(), i.backends(), i.metrics());
+                i.activeGroup(), i.routingConfigVersion(), i.groups(), i.backends(), i.metrics());
     }
 }

@@ -12,7 +12,7 @@ class FleetRegistryTest {
 
     private static RouterInstance ri(String id, Instant heartbeat) {
         return new RouterInstance(id, Instant.parse("2026-06-16T09:00:00Z"), heartbeat, "default",
-                List.of("default"), List.of(), new RouterInstance.RouterMetrics(0, 0, 0, 0, 0, 0, 0));
+                0L, List.of("default"), List.of(), new RouterInstance.RouterMetrics(0, 0, 0, 0, 0, 0, 0));
     }
 
     @Test
