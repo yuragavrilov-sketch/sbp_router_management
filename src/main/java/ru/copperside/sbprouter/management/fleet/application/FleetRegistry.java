@@ -39,7 +39,11 @@ public class FleetRegistry {
         return List.copyOf(instances.values());
     }
 
-    /** Drops instances whose last heartbeat is older than {@code cutoff} (bounds memory). */
+    /**
+     * Drops instances whose last heartbeat is older than {@code cutoff}. Called periodically by
+     * {@code FleetPurgeJob}; between runs the map size is bounded only by the number of distinct
+     * instanceIds seen — fine for an internal topic with a bounded pod count.
+     */
     public void purgeOlderThan(Instant cutoff) {
         instances.values().removeIf(i -> i.lastHeartbeat() == null || i.lastHeartbeat().isBefore(cutoff));
     }
