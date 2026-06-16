@@ -3,7 +3,7 @@
 # Компонент даёт стадии validate → test → package(Kaniko) → scan(Trivy) → deploy(manual) → smoke,
 # плюс vault_policy_validate + vault_apply (gated на наличии vault/policy.hcl).
 include:
-  - component: $CI_SERVER_FQDN/tkbpay/ci-templates/java-spring@1.1.10
+  - component: $CI_SERVER_FQDN/tkbpay/ci-templates/java-spring@1.1.11
     inputs:
       release_name: sbp-router-management
       with_cert: true

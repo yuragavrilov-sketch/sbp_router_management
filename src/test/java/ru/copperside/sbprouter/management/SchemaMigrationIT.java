@@ -16,7 +16,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @ImportAutoConfiguration(FlywayAutoConfiguration.class)
 @DirtiesContext
-class SchemaMigrationTest extends PostgresTestSupport {
+class SchemaMigrationIT extends PostgresTestSupport {
 
     @Autowired
     JdbcTemplate jdbc;

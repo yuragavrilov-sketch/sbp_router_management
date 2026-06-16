@@ -20,7 +20,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @ImportAutoConfiguration(FlywayAutoConfiguration.class)
 @DirtiesContext
-class PostgresTrafficWriteRepositoryTest extends PostgresTestSupport {
+class PostgresTrafficWriteRepositoryIT extends PostgresTestSupport {
 
     @Autowired
     JdbcTemplate jdbc;
