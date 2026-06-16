@@ -68,4 +68,3 @@ traffic:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
     topic: ${KAFKA_TOPIC:sbp-router-traffic}
     group-id: ${KAFKA_GROUP_ID:sbp-router-management}
-    manifest-topic: ${KAFKA_MANIFEST_TOPIC:sbp-router-manifest}
