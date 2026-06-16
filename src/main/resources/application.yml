@@ -76,3 +76,6 @@ fleet:
   group-id: ${FLEET_GROUP_ID:sbp-router-management-fleet}
   ttl: ${FLEET_TTL:45s}
   purge-interval-ms: ${FLEET_PURGE_INTERVAL_MS:60000}
+
+routing:
+  topic: ${SBP_ROUTING_CONFIG_TOPIC:sbp-router-routing-config}

@@ -7,6 +7,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import ru.copperside.sbprouter.management.routing.domain.RoutingConfigProblemException;
 import ru.copperside.sbprouter.management.traffic.domain.TrafficTransactionProblemException;
 
 import java.time.Clock;
@@ -31,6 +32,16 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(ConstraintViolationException.class)
     ResponseEntity<ProblemEnvelope> handleConstraintValidation(ConstraintViolationException ex) {
         return problem(HttpStatus.BAD_REQUEST, "VALIDATION_ERROR", "Validation failed", ex.getMessage(), null);
+    }
+
+    @ExceptionHandler(RoutingConfigProblemException.class)
+    ResponseEntity<ProblemEnvelope> handleRoutingConfigProblem(RoutingConfigProblemException ex) {
+        HttpStatus status = switch (ex.code()) {
+            case "ROUTING_CONFIG_NOT_FOUND" -> HttpStatus.NOT_FOUND;
+            case "ROUTING_CONFIG_PUBLISH_FAILED" -> HttpStatus.SERVICE_UNAVAILABLE;
+            default -> HttpStatus.BAD_REQUEST;
+        };
+        return problem(status, ex.code(), "Routing config problem", messageWithoutCode(ex), null);
     }
 
     @ExceptionHandler(TrafficTransactionProblemException.class)
