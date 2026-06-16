@@ -1,18 +1,25 @@
 # sbp-router-management
 
-Administrative service for SBP routing configuration catalog and routing-manifest compilation.
+Administrative service for SBP traffic observability: it ingests the proxied
+GCSvc traffic published by `sbp-router` and exposes it for querying.
 
 ## Scope
 
-The service exposes an internal admin API for the draft→publish lifecycle of SBP
-routing configuration and compiles all `ACTIVE` routing configuration into a
-versioned, checksummed routing manifest. Data is stored in Postgres schema
-`sbp_router_management` with Flyway migrations.
+`sbp-router` publishes the raw request and response of every proxied GCSvc
+transaction to the `sbp-router-traffic` Kafka topic. This service consumes that
+topic, correlates each request/response pair into a transaction row in Postgres
+schema `sbp_router_management` (Flyway-managed), applies time-based retention,
+and exposes an internal admin API to list/search transactions, fetch a single
+transaction (with raw XML), and read aggregate stats.
 
-`sbp-router` currently loads its routing configuration statically from YAML /
-Config Server. Consumption of routing manifests produced by this service is a
-future increment (see ADR-0005). This service owns the administrative source of
-truth for routing configuration; `sbp-router` is not changed by this service.
+> **Routing-config-admin removed (flat-proxy sync, 2026-06-16).** `sbp-router`
+> was reduced to a flat single-backend proxy that no longer consumes routing
+> manifests, so this service's former routing-config catalog (upstreams,
+> extraction-rules, terminals, tkb-pay, routing flags) and routing-manifest
+> compilation/publishing were removed from the main line. They remain in git
+> history; the richer content-router variant is preserved on the `sbp_router`
+> `feature/sbp-rollout` branch. The config-admin Flyway tables (V1/V2) are left
+> in place but dormant.
 
 ## Stack
 
@@ -21,6 +28,7 @@ truth for routing configuration; `sbp-router` is not changed by this service.
 - Spring Cloud 2025.1.1
 - Spring MVC, Validation, Actuator
 - Spring Cloud Config Client and Vault Config
+- Spring for Apache Kafka (traffic consumer)
 - Postgres (schema `sbp_router_management`), Flyway
 - springdoc-openapi
 
@@ -44,6 +52,9 @@ truth for routing configuration; `sbp-router` is not changed by this service.
 | `SBP_ROUTER_MANAGEMENT_DB_USERNAME` | `pay_admin` | Local fallback DB user |
 | `SBP_ROUTER_MANAGEMENT_DB_PASSWORD` | empty | Local fallback DB password; test/compose loaded from Vault |
 | `SBP_ROUTER_MANAGEMENT_SERVICE_NAME` | `SBP Router Management` | Display name for this service |
+| `KAFKA_ENABLED` | `false` locally, `true` in compose | Enables the `sbp-router-traffic` consumer |
+| `KAFKA_BOOTSTRAP_SERVERS` | `localhost:9092` | Kafka bootstrap servers |
+| `TRAFFIC_RETENTION_DAYS` | `30` | Days of traffic to retain before scheduled purge |
 
 Vault secret path (compose contour): `pay/compose/sbp-router-management-db-password`.
 
@@ -56,50 +67,22 @@ defaults or `SBP_ROUTER_MANAGEMENT_DB_*` environment overrides:
 mvn spring-boot:run
 ```
 
-## Routing config entities
+## Traffic ingest & query
 
-The service manages five configuration entity types via draft→publish lifecycle:
+The Kafka consumer (gated by `KAFKA_ENABLED`, at-least-once with manual ack)
+reads `request`/`response` events from `sbp-router-traffic`, keyed by SBP
+`correlationId` (or `txId` fallback). Each pair is correlated by upsert into one
+transaction row (`PENDING` → `RESPONDED`, latency from the request/response
+timestamps). A scheduled job purges transactions older than
+`TRAFFIC_RETENTION_DAYS`. Only headers + raw XML are stored; payload bodies are
+not parsed.
 
-- **Upstreams** — target HTTP endpoints for SBP GCSvc routing.
-- **Extraction rules** — per message-type field-binding rules that extract
-  routing fields from GCSvc XML.
-- **Terminal routing config** — singleton configuration for terminal-level routing
-  field names and TKB Pay prefix.
-- **TKB Pay list entries** — allow-list of `rcvTspId` values identifying TKB Pay
-  transactions.
-- **Routing flags** — key/value configuration flags.
+Internal admin API (`/internal/v1/sbp-router-management`, guarded by
+`X-Internal-Admin-Key`):
 
-Each entity supports `list`, `create`, and `patch` operations. Create and patch
-operate on drafts. `DELETE /internal/v1/sbp-router-management/upstreams/{id}` and
-`DELETE …/extraction-rules/{id}` mark an active entry for removal (`removal=true`),
-mirroring the existing TKB-Pay delete behaviour. `GET /internal/v1/sbp-router-management/routing-config/pending-changes`
-returns all `DRAFT` and `removal=true` entries across all entity types.
-
-`POST /internal/v1/sbp-router-management/routing-config/discard-drafts` discards
-all pending drafts and removals, restoring the active state.
-
-## Routing manifests
-
-`POST /internal/v1/sbp-router-management/routing-manifests` compiles all `ACTIVE`
-routing configuration into a versioned, checksummed routing manifest.
-
-The compiler validates consistency before publishing:
-
-- All extraction-rule field bindings must be valid.
-- A routing manifest is rejected with `ROUTING_MANIFEST_CONFLICT` if the active
-  configuration is inconsistent.
-- A manifest with the same checksum (identical content) as an existing manifest
-  is rejected as a duplicate.
-
-Read endpoints:
-
-- `GET /internal/v1/sbp-router-management/routing-manifests/latest`
-- `GET /internal/v1/sbp-router-management/routing-manifests/{manifestId}`
-
-Full test-profile startup is owned by `../infra/run-test.ps1`: non-secret
-database config is loaded from Config Server branch `test`, and
-`spring.datasource.password` is loaded from Vault path
-`pay/test/sbp-router-management-db-password`.
+- `GET /traffic/transactions` — list/search (filters, paging); list rows omit raw XML.
+- `GET /traffic/transactions/{correlationId}` — single transaction with raw request/response XML.
+- `GET /traffic/stats` — aggregate stats (throughput, latency, outcomes) over a window.
 
 Health: [http://localhost:8087/actuator/health](http://localhost:8087/actuator/health)
 
@@ -129,14 +112,3 @@ Contract: [../contracts/sbp-router-management](../contracts/sbp-router-managemen
 ```powershell
 mvn clean verify
 ```
-
-## Cycle-1 limitations
-
-1. **Per-entity `version` is not incremented on patch or publish.** The manifest's
-   `entity_version` for TKB-Pay entries and routing flags is recorded as `1` regardless
-   of the number of edits. Version tracking for individual entities is a future increment.
-
-2. **`routing_manifest_entities.payload_json` stores an entity-id index only.** The
-   authoritative manifest snapshot is `routing_manifests.payload_json`. The entity-level
-   `payload_json` column (`{"entityId":"…"}`) exists as a position index and is not a
-   full entity snapshot. These are intentional cycle-1 scope limits.
