@@ -36,7 +36,11 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(RoutingConfigProblemException.class)
     ResponseEntity<ProblemEnvelope> handleRoutingConfigProblem(RoutingConfigProblemException ex) {
-        HttpStatus status = ex.code().equals("ROUTING_CONFIG_NOT_FOUND") ? HttpStatus.NOT_FOUND : HttpStatus.BAD_REQUEST;
+        HttpStatus status = switch (ex.code()) {
+            case "ROUTING_CONFIG_NOT_FOUND" -> HttpStatus.NOT_FOUND;
+            case "ROUTING_CONFIG_PUBLISH_FAILED" -> HttpStatus.SERVICE_UNAVAILABLE;
+            default -> HttpStatus.BAD_REQUEST;
+        };
         return problem(status, ex.code(), "Routing config problem", messageWithoutCode(ex), null);
     }
 

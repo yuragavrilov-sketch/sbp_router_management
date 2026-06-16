@@ -10,6 +10,7 @@ import org.springframework.stereotype.Component;
 import ru.copperside.sbprouter.management.routing.application.port.out.RoutingConfigPublisher;
 import ru.copperside.sbprouter.management.routing.config.RoutingConfigProperties;
 import ru.copperside.sbprouter.management.routing.domain.RoutingConfig;
+import ru.copperside.sbprouter.management.routing.domain.RoutingConfigProblemException;
 import ru.copperside.sbprouter.management.traffic.config.TrafficProperties;
 
 import java.util.HashMap;
@@ -48,7 +49,10 @@ public class KafkaRoutingConfigPublisher implements RoutingConfigPublisher, Auto
             byte[] value = mapper.writeValueAsBytes(config);
             producer.send(new ProducerRecord<>(topic, KEY, value)).get(5, TimeUnit.SECONDS);
         } catch (Exception e) {
-            throw new IllegalStateException("routing-config publish failed", e);
+            // Persisted but not broadcast — surfaced as 503 so the operator retries (routers also
+            // replay the latest from the compacted topic on their next restart).
+            throw new RoutingConfigProblemException("ROUTING_CONFIG_PUBLISH_FAILED",
+                    "could not broadcast routing config: " + e.getMessage());
         }
     }
 
