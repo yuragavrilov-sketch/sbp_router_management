@@ -52,9 +52,11 @@ transaction (with raw XML), and read aggregate stats.
 | `SBP_ROUTER_MANAGEMENT_DB_USERNAME` | `pay_admin` | Local fallback DB user |
 | `SBP_ROUTER_MANAGEMENT_DB_PASSWORD` | empty | Local fallback DB password; test/compose loaded from Vault |
 | `SBP_ROUTER_MANAGEMENT_SERVICE_NAME` | `SBP Router Management` | Display name for this service |
-| `KAFKA_ENABLED` | `false` locally, `true` in compose | Enables the `sbp-router-traffic` consumer |
+| `KAFKA_ENABLED` | `false` locally, `true` in compose | Enables the `sbp-router-traffic` **and** `sbp-router-heartbeat` (fleet) consumers |
 | `KAFKA_BOOTSTRAP_SERVERS` | `localhost:9092` | Kafka bootstrap servers |
 | `TRAFFIC_RETENTION_DAYS` | `30` | Days of traffic to retain before scheduled purge |
+| `SBP_HEARTBEAT_TOPIC` | `sbp-router-heartbeat` | Router fleet heartbeat topic |
+| `FLEET_TTL` | `45s` | After this with no heartbeat an instance is reported `STALE` |
 
 Vault secret path (compose contour): `pay/compose/sbp-router-management-db-password`.
 
@@ -83,6 +85,23 @@ Internal admin API (`/internal/v1/sbp-router-management`, guarded by
 - `GET /traffic/transactions` — list/search (filters, paging); list rows omit raw XML.
 - `GET /traffic/transactions/{correlationId}` — single transaction with raw request/response XML.
 - `GET /traffic/stats` — aggregate stats (throughput, latency, outcomes) over a window.
+
+## Fleet view
+
+When `KAFKA_ENABLED=true`, a second consumer reads the `sbp-router-heartbeat`
+topic (each router pod publishes presence + metrics) into an in-memory registry,
+exposed at:
+
+- `GET /internal/v1/sbp-router-management/routers` — the running router fleet:
+  `{ total, up, routers: [ { instanceId, status (UP|STALE), startedAt,
+  lastHeartbeat, activeGroup, groups, backends, metrics } ] }`. An instance with
+  no heartbeat for `FLEET_TTL` is reported `STALE`; long-silent instances are
+  purged. The registry is in-memory only (derived state, not persisted).
+
+> Note: the fleet consumer uses a single shared group, so the view is complete on
+> a single-instance deployment. A multi-replica `sbp-router-management` would need
+> a per-instance consumer group for each replica to see the whole fleet — a
+> follow-up if this service is ever scaled out.
 
 Health: [http://localhost:8087/actuator/health](http://localhost:8087/actuator/health)
 
