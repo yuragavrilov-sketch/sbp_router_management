@@ -46,6 +46,13 @@ public class RoutingConfigValidator {
             if (authPay.timeoutMs() != null && authPay.timeoutMs() <= 0) {
                 throw new RoutingConfigProblemException(CODE, "authPay.timeoutMs must be positive");
             }
+            if (authPay.sbpOperations() != null) {
+                for (String op : authPay.sbpOperations()) {
+                    if (op == null || op.isBlank()) {
+                        throw new RoutingConfigProblemException(CODE, "authPay.sbpOperations has a blank value");
+                    }
+                }
+            }
         }
     }
 }

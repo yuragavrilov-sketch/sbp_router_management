@@ -54,29 +54,43 @@ class RoutingConfigValidatorTest {
     @Test
     void acceptsDisabledOrAbsentAuthPay() {
         assertThatCode(() -> validator.validate(withAuthPay(null))).doesNotThrowAnyException();
-        assertThatCode(() -> validator.validate(withAuthPay(new RoutingConfig.AuthPay(false, List.of(), null))))
+        assertThatCode(() -> validator.validate(withAuthPay(new RoutingConfig.AuthPay(false, List.of(), null, null))))
                 .doesNotThrowAnyException();
     }
 
     @Test
     void acceptsEnabledAuthPayWithBackends() {
         assertThatCode(() -> validator.validate(
-                withAuthPay(new RoutingConfig.AuthPay(true, List.of("http://authpay/x"), 1500))))
+                withAuthPay(new RoutingConfig.AuthPay(true, List.of("http://authpay/x"), 1500, null))))
                 .doesNotThrowAnyException();
     }
 
     @Test
     void rejectsEnabledAuthPayWithoutBackends() {
-        assertThatThrownBy(() -> validator.validate(withAuthPay(new RoutingConfig.AuthPay(true, List.of(), null))))
+        assertThatThrownBy(() -> validator.validate(withAuthPay(new RoutingConfig.AuthPay(true, List.of(), null, null))))
                 .isInstanceOf(RoutingConfigProblemException.class);
-        assertThatThrownBy(() -> validator.validate(withAuthPay(new RoutingConfig.AuthPay(true, List.of(" "), null))))
+        assertThatThrownBy(() -> validator.validate(withAuthPay(new RoutingConfig.AuthPay(true, List.of(" "), null, null))))
                 .isInstanceOf(RoutingConfigProblemException.class);
     }
 
     @Test
     void rejectsNonPositiveAuthPayTimeout() {
         assertThatThrownBy(() -> validator.validate(
-                withAuthPay(new RoutingConfig.AuthPay(true, List.of("http://authpay/x"), 0))))
+                withAuthPay(new RoutingConfig.AuthPay(true, List.of("http://authpay/x"), 0, null))))
+                .isInstanceOf(RoutingConfigProblemException.class);
+    }
+
+    @Test
+    void acceptsAuthPaySbpOperations() {
+        assertThatCode(() -> validator.validate(withAuthPay(
+                new RoutingConfig.AuthPay(true, List.of("http://x"), 1500, List.of("C2BQRD_Rcv", "C2BQRS_Rcv")))))
+                .doesNotThrowAnyException();
+    }
+
+    @Test
+    void rejectsBlankSbpOperation() {
+        assertThatThrownBy(() -> validator.validate(withAuthPay(
+                new RoutingConfig.AuthPay(true, List.of("http://x"), null, List.of(" ")))))
                 .isInstanceOf(RoutingConfigProblemException.class);
     }
 }

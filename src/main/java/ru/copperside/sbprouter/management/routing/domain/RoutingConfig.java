@@ -11,8 +11,14 @@ public record RoutingConfig(Long version, String activeGroup, Map<String, Group>
     public record Group(List<String> backends) {
     }
 
-    /** Optional route: when enabled, ReqAuthPay messages are forwarded to this backend pool. */
-    public record AuthPay(boolean enabled, List<String> backends, Integer timeoutMs) {
+    /** Optional route: when enabled, ReqAuthPay messages are forwarded to this backend pool.
+     *  When {@code sbpOperations} is non-null and non-empty, only ReqAuthPay messages whose
+     *  SbpOperation is in the list are routed to this pool. */
+    public record AuthPay(boolean enabled, List<String> backends, Integer timeoutMs, List<String> sbpOperations) {
+        /** Backward-compatible secondary constructor for call sites that predate sbpOperations. */
+        public AuthPay(boolean enabled, List<String> backends, Integer timeoutMs) {
+            this(enabled, backends, timeoutMs, null);
+        }
     }
 
     /** Backward-compatible constructor for call sites that predate the authPay route. */
