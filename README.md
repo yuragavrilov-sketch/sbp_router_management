@@ -12,14 +12,14 @@ schema `sbp_router_management` (Flyway-managed), applies time-based retention,
 and exposes an internal admin API to list/search transactions, fetch a single
 transaction (with raw XML), and read aggregate stats.
 
-> **Routing-config-admin removed (flat-proxy sync, 2026-06-16).** `sbp-router`
-> was reduced to a flat single-backend proxy that no longer consumes routing
-> manifests, so this service's former routing-config catalog (upstreams,
-> extraction-rules, terminals, tkb-pay, routing flags) and routing-manifest
-> compilation/publishing were removed from the main line. They remain in git
-> history; the richer content-router variant is preserved on the `sbp_router`
-> `feature/sbp-rollout` branch. The config-admin Flyway tables (V1/V2) are left
-> in place but dormant.
+> **Routing-config history.** The rich routing-config catalog (upstreams,
+> extraction-rules, terminals, tkb-pay, routing flags, routing-manifest
+> compilation/publishing) was removed from the main line on 2026-06-16. A slim
+> managed routing-config — groups/backends only — was re-introduced on 2026-06-17
+> and is consumed by the router end-to-end (see **Managed routing-config**
+> below). The richer content-router variant is preserved on the `sbp_router`
+> `feature/sbp-rollout` branch. The old config-admin Flyway tables (V1/V2) are
+> left in place but dormant. See ADR-0005 (amended).
 
 ## Stack
 
@@ -56,6 +56,7 @@ transaction (with raw XML), and read aggregate stats.
 | `KAFKA_BOOTSTRAP_SERVERS` | `localhost:9092` | Kafka bootstrap servers |
 | `TRAFFIC_RETENTION_DAYS` | `30` | Days of traffic to retain before scheduled purge |
 | `SBP_HEARTBEAT_TOPIC` | `sbp-router-heartbeat` | Router fleet heartbeat topic |
+| `SBP_ROUTING_CONFIG_TOPIC` | `sbp-router-routing-config` | Topic the managed routing-config is published to (gated by `KAFKA_ENABLED`) |
 | `FLEET_TTL` | `45s` | After this with no heartbeat an instance is reported `STALE` |
 
 Vault secret path (compose contour): `pay/compose/sbp-router-management-db-password`.
@@ -86,6 +87,30 @@ Internal admin API (`/internal/v1/sbp-router-management`, guarded by
 - `GET /traffic/transactions/{correlationId}` — single transaction with raw request/response XML.
 - `GET /traffic/stats` — aggregate stats (throughput, latency, outcomes) over a window.
 
+## Managed routing-config
+
+This service owns a slim managed routing-config — groups and their backends
+only, not the old extraction/manifest catalog. The document is:
+
+```json
+{ "version": 1, "activeGroup": "default", "groups": { "default": { "backends": ["http://..."] } } }
+```
+
+It is stored in the Postgres table `routing_config` (Flyway `V5`); on replace the
+`version` is set to `max(version) + 1`.
+
+Internal admin API (`/internal/v1/sbp-router-management`, guarded by
+`X-Internal-Admin-Key`):
+
+- `GET /routing-config` — current config (`404` if none has been set yet).
+- `PUT /routing-config` — replace config (`200` with the persisted version;
+  `400` on an invalid config; `503` if publishing to Kafka fails).
+
+On `PUT` the service validates the config, bumps the version, persists it, and
+publishes the full config to the compacted Kafka topic `sbp-router-routing-config`
+(gated by `KAFKA_ENABLED`). Routers consume that topic and rebuild their
+registries from it.
+
 ## Fleet view
 
 When `KAFKA_ENABLED=true`, a second consumer reads the `sbp-router-heartbeat`
@@ -94,9 +119,13 @@ exposed at:
 
 - `GET /internal/v1/sbp-router-management/routers` — the running router fleet:
   `{ total, up, routers: [ { instanceId, status (UP|STALE), startedAt,
-  lastHeartbeat, activeGroup, groups, backends, metrics } ] }`. An instance with
-  no heartbeat for `FLEET_TTL` is reported `STALE`; long-silent instances are
-  purged. The registry is in-memory only (derived state, not persisted).
+  lastHeartbeat, activeGroup, groups, backends, routingConfigVersion, metrics } ] }`.
+  `routingConfigVersion` is the routing-config version each router has applied —
+  desired-vs-actual: this service owns the desired version (see **Managed
+  routing-config**), routers report the version they have actually applied. An
+  instance with no heartbeat for `FLEET_TTL` is reported `STALE`; long-silent
+  instances are purged. The registry is in-memory only (derived state, not
+  persisted).
 
 > Note: the fleet consumer uses a single shared group, so the view is complete on
 > a single-instance deployment. A multi-replica `sbp-router-management` would need
