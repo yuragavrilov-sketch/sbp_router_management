@@ -2,6 +2,7 @@ package ru.copperside.sbprouter.management.routing.application;
 
 import org.junit.jupiter.api.Test;
 import ru.copperside.sbprouter.management.routing.domain.RoutingConfig;
+import ru.copperside.sbprouter.management.routing.domain.RoutingConfig.AuthPay;
 import ru.copperside.sbprouter.management.routing.domain.RoutingConfigProblemException;
 
 import java.util.List;
@@ -41,6 +42,41 @@ class RoutingConfigValidatorTest {
         assertThatThrownBy(() -> validator.validate(cfg("default", Map.of("default", List.of()))))
                 .isInstanceOf(RoutingConfigProblemException.class);
         assertThatThrownBy(() -> validator.validate(cfg("default", Map.of("default", List.of(" ")))))
+                .isInstanceOf(RoutingConfigProblemException.class);
+    }
+
+    private static RoutingConfig withAuthPay(RoutingConfig.AuthPay ap) {
+        Map<String, RoutingConfig.Group> g = new java.util.LinkedHashMap<>();
+        g.put("default", new RoutingConfig.Group(List.of("http://a/api")));
+        return new RoutingConfig(null, "default", g, ap);
+    }
+
+    @Test
+    void acceptsDisabledOrAbsentAuthPay() {
+        assertThatCode(() -> validator.validate(withAuthPay(null))).doesNotThrowAnyException();
+        assertThatCode(() -> validator.validate(withAuthPay(new RoutingConfig.AuthPay(false, List.of(), null))))
+                .doesNotThrowAnyException();
+    }
+
+    @Test
+    void acceptsEnabledAuthPayWithBackends() {
+        assertThatCode(() -> validator.validate(
+                withAuthPay(new RoutingConfig.AuthPay(true, List.of("http://authpay/x"), 1500))))
+                .doesNotThrowAnyException();
+    }
+
+    @Test
+    void rejectsEnabledAuthPayWithoutBackends() {
+        assertThatThrownBy(() -> validator.validate(withAuthPay(new RoutingConfig.AuthPay(true, List.of(), null))))
+                .isInstanceOf(RoutingConfigProblemException.class);
+        assertThatThrownBy(() -> validator.validate(withAuthPay(new RoutingConfig.AuthPay(true, List.of(" "), null))))
+                .isInstanceOf(RoutingConfigProblemException.class);
+    }
+
+    @Test
+    void rejectsNonPositiveAuthPayTimeout() {
+        assertThatThrownBy(() -> validator.validate(
+                withAuthPay(new RoutingConfig.AuthPay(true, List.of("http://authpay/x"), 0))))
                 .isInstanceOf(RoutingConfigProblemException.class);
     }
 }

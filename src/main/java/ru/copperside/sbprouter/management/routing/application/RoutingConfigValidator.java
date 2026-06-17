@@ -32,5 +32,20 @@ public class RoutingConfigValidator {
         if (active == null || active.isBlank() || !groups.containsKey(active)) {
             throw new RoutingConfigProblemException(CODE, "activeGroup '" + active + "' must be one of " + groups.keySet());
         }
+        RoutingConfig.AuthPay authPay = config.authPay();
+        if (authPay != null && authPay.enabled()) {
+            List<String> backends = authPay.backends();
+            if (backends == null || backends.isEmpty()) {
+                throw new RoutingConfigProblemException(CODE, "authPay.backends must have at least one backend when enabled");
+            }
+            for (String url : backends) {
+                if (url == null || url.isBlank()) {
+                    throw new RoutingConfigProblemException(CODE, "authPay.backends has a blank url");
+                }
+            }
+            if (authPay.timeoutMs() != null && authPay.timeoutMs() <= 0) {
+                throw new RoutingConfigProblemException(CODE, "authPay.timeoutMs must be positive");
+            }
+        }
     }
 }
