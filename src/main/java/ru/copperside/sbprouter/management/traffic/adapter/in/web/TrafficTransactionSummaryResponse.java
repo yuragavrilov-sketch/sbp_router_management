@@ -8,6 +8,8 @@ public record TrafficTransactionSummaryResponse(
         String correlationId,
         String txId,
         String requestType,
+        String operationId,
+        String operationType,
         String terminalOwner,
         String route,
         String upstream,
@@ -20,8 +22,9 @@ public record TrafficTransactionSummaryResponse(
 ) {
     public static TrafficTransactionSummaryResponse from(TrafficTransaction t) {
         return new TrafficTransactionSummaryResponse(
-                t.correlationId(), t.txId(), t.requestType(), t.terminalOwner(),
-                t.route(), t.upstream(), t.outcome(), t.status().name(),
+                t.correlationId(), t.txId(), t.requestType(),
+                t.operationId(), t.operationType(),
+                t.terminalOwner(), t.route(), t.upstream(), t.outcome(), t.status().name(),
                 t.requestAt(), t.responseAt(), t.latencyMs(), t.env());
     }
 }

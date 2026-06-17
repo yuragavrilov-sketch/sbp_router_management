@@ -34,10 +34,11 @@ public class TrafficController {
             @RequestParam(required = false) String status,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant from,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant to,
+            @RequestParam(required = false) String operationId,
             @RequestParam(required = false) String q,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "50") int size) {
-        TrafficQuery query = new TrafficQuery(requestType, terminalOwner, upstream, outcome, status, from, to, q, page, size);
+        TrafficQuery query = new TrafficQuery(requestType, terminalOwner, upstream, outcome, status, from, to, operationId, q, page, size);
         return ApiResponse.success(TrafficTransactionListResponse.from(service.list(query)), clock);
     }
 

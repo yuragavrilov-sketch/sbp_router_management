@@ -17,10 +17,14 @@ public class TrafficEventMapper {
         if (correlationId == null && txId == null) {
             txId = key; // last-resort key fallback
         }
+        String operationId = blankToNull(headers.get("operationId"));
+        String operationType = blankToNull(headers.get("operationType"));
         return new TrafficEvent(
                 direction,
                 txId,
                 correlationId,
+                operationId,
+                operationType,
                 blankToNull(headers.get("requestType")),
                 blankToNull(headers.get("env")),
                 parseInstant(headers.get("timestamp")),

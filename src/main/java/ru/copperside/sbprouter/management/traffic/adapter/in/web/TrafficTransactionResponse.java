@@ -8,6 +8,8 @@ public record TrafficTransactionResponse(
         String correlationId,
         String txId,
         String requestType,
+        String operationId,
+        String operationType,
         String terminalOwner,
         String route,
         String upstream,
@@ -21,8 +23,9 @@ public record TrafficTransactionResponse(
         String responseXml
 ) {
     public static TrafficTransactionResponse from(TrafficTransaction t) {
-        return new TrafficTransactionResponse(t.correlationId(), t.txId(), t.requestType(), t.terminalOwner(),
-                t.route(), t.upstream(), t.outcome(), t.status().name(), t.requestAt(), t.responseAt(),
-                t.latencyMs(), t.env(), t.requestXml(), t.responseXml());
+        return new TrafficTransactionResponse(t.correlationId(), t.txId(), t.requestType(),
+                t.operationId(), t.operationType(),
+                t.terminalOwner(), t.route(), t.upstream(), t.outcome(), t.status().name(),
+                t.requestAt(), t.responseAt(), t.latencyMs(), t.env(), t.requestXml(), t.responseXml());
     }
 }

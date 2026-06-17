@@ -51,4 +51,29 @@ class TrafficEventMapperTest {
         assertThat(e.correlationId()).isNull();
         assertThat(e.correlationKey()).isEqualTo("tx-9");
     }
+
+    @Test
+    void mapsOperationIdAndOperationType() {
+        Map<String, String> headers = new java.util.HashMap<>(Map.of(
+                "direction", "request", "txId", "tx-1", "correlationId", "corr-1",
+                "requestType", "ReqAuthPay", "env", "local",
+                "timestamp", "2026-05-29T09:00:00Z"));
+        headers.put("operationId", "A614711381");
+        headers.put("operationType", "C2B");
+        TrafficEvent e = mapper.map("corr-1", headers, "<req/>".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+
+        assertThat(e.operationId()).isEqualTo("A614711381");
+        assertThat(e.operationType()).isEqualTo("C2B");
+    }
+
+    @Test
+    void operationFieldsNullWhenAbsent() {
+        Map<String, String> headers = Map.of(
+                "direction", "request", "txId", "tx-2", "correlationId", "corr-2",
+                "requestType", "ReqNoticePay");
+        TrafficEvent e = mapper.map("corr-2", headers, new byte[0]);
+
+        assertThat(e.operationId()).isNull();
+        assertThat(e.operationType()).isNull();
+    }
 }

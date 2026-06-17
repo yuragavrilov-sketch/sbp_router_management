@@ -43,7 +43,8 @@ public class PostgresTrafficQueryRepository implements TrafficQueryRepository {
         pageArgs.add(size);
         pageArgs.add(offset);
         List<TrafficTransaction> rows = jdbc.query(
-                "select correlation_id, tx_id, request_type, terminal_owner, route, upstream, outcome, status, "
+                "select correlation_id, tx_id, request_type, operation_id, operation_type, "
+                        + "terminal_owner, route, upstream, outcome, status, "
                         + "request_at, response_at, latency_ms, env, created_at, updated_at "
                         + "from traffic_transactions" + where + " order by created_at desc limit ? offset ?",
                 LIST_MAPPER, pageArgs.toArray());
@@ -99,6 +100,9 @@ public class PostgresTrafficQueryRepository implements TrafficQueryRepository {
         if (q.status() != null) { where.append(" and status = ?"); args.add(q.status()); }
         if (q.from() != null) { where.append(" and created_at >= ?"); args.add(Timestamp.from(q.from())); }
         if (q.to() != null) { where.append(" and created_at < ?"); args.add(Timestamp.from(q.to())); }
+        if (q.operationId() != null && !q.operationId().isBlank()) {
+            where.append(" and operation_id = ?"); args.add(q.operationId());
+        }
         if (q.q() != null && !q.q().isBlank()) {
             where.append(" and (correlation_id ilike ? or tx_id ilike ?)");
             args.add("%" + q.q() + "%");
@@ -125,6 +129,8 @@ public class PostgresTrafficQueryRepository implements TrafficQueryRepository {
                 rs.getString("correlation_id"),
                 rs.getString("tx_id"),
                 rs.getString("request_type"),
+                rs.getString("operation_id"),
+                rs.getString("operation_type"),
                 rs.getString("terminal_owner"),
                 rs.getString("route"),
                 rs.getString("upstream"),

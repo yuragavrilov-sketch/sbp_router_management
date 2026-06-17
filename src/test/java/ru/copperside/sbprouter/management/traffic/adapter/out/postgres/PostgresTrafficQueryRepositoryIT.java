@@ -33,17 +33,17 @@ class PostgresTrafficQueryRepositoryIT extends PostgresTestSupport {
     private void seed() {
         PostgresTrafficWriteRepository w = new PostgresTrafficWriteRepository(jdbc);
         // responded ReqAuthPay, latency 40ms
-        w.upsert(new TrafficTransaction("c1", "tx1", "ReqAuthPay", "owner-A", "route-x", null, null,
+        w.upsert(new TrafficTransaction("c1", "tx1", "ReqAuthPay", null, null, "owner-A", "route-x", null, null,
                 TrafficStatus.PENDING, t0, null, null, "local", "<req1/>", null, t0, t0));
-        w.upsert(new TrafficTransaction("c1", "tx1", "ReqAuthPay", null, null, "infosrv", "Code=0",
+        w.upsert(new TrafficTransaction("c1", "tx1", "ReqAuthPay", null, null, null, null, "infosrv", "Code=0",
                 TrafficStatus.PENDING, null, t0.plusMillis(40), null, "local", null, "<ans1/>", t0, t0));
         // responded ReqNoticePay, latency 60ms
-        w.upsert(new TrafficTransaction("c2", "tx2", "ReqNoticePay", "owner-B", "route-y", null, null,
+        w.upsert(new TrafficTransaction("c2", "tx2", "ReqNoticePay", null, null, "owner-B", "route-y", null, null,
                 TrafficStatus.PENDING, t0, null, null, "local", "<req2/>", null, t0, t0));
-        w.upsert(new TrafficTransaction("c2", "tx2", "ReqNoticePay", null, null, "stub", "Code=0",
+        w.upsert(new TrafficTransaction("c2", "tx2", "ReqNoticePay", null, null, null, null, "stub", "Code=0",
                 TrafficStatus.PENDING, null, t0.plusMillis(60), null, "local", null, "<ans2/>", t0, t0));
         // pending ReqAuthPay
-        w.upsert(new TrafficTransaction("c3", "tx3", "ReqAuthPay", "owner-A", "route-x", null, null,
+        w.upsert(new TrafficTransaction("c3", "tx3", "ReqAuthPay", null, null, "owner-A", "route-x", null, null,
                 TrafficStatus.PENDING, t0, null, null, "local", "<req3/>", null, t0, t0));
     }
 
@@ -51,9 +51,9 @@ class PostgresTrafficQueryRepositoryIT extends PostgresTestSupport {
     void listFiltersByRequestTypeAndPaginates() {
         seed();
         PostgresTrafficQueryRepository repo = new PostgresTrafficQueryRepository(jdbc);
-        TrafficListResult all = repo.list(new TrafficQuery(null, null, null, null, null, null, null, null, 0, 50));
+        TrafficListResult all = repo.list(new TrafficQuery(null, null, null, null, null, null, null, null, null, 0, 50));
         assertThat(all.total()).isEqualTo(3);
-        TrafficListResult authPay = repo.list(new TrafficQuery("ReqAuthPay", null, null, null, null, null, null, null, 0, 50));
+        TrafficListResult authPay = repo.list(new TrafficQuery("ReqAuthPay", null, null, null, null, null, null, null, null, 0, 50));
         assertThat(authPay.total()).isEqualTo(2);
         // list rows omit raw XML
         assertThat(authPay.items().get(0).requestXml()).isNull();
@@ -87,10 +87,29 @@ class PostgresTrafficQueryRepositoryIT extends PostgresTestSupport {
     }
 
     @Test
+    void operationIdFilterAndRoundTrip() {
+        PostgresTrafficWriteRepository w = new PostgresTrafficWriteRepository(jdbc);
+        w.upsert(new TrafficTransaction("op-c1", "op-tx1", "ReqAuthPay", "A614711381", "C2B",
+                "owner-A", "route-x", null, null,
+                TrafficStatus.PENDING, t0, null, null, "local", "<req-op/>", null, t0, t0));
+        w.upsert(new TrafficTransaction("op-c2", "op-tx2", "ReqAuthPay", "B9999", "B2C",
+                "owner-B", "route-y", null, null,
+                TrafficStatus.PENDING, t0, null, null, "local", "<req-op2/>", null, t0, t0));
+
+        PostgresTrafficQueryRepository repo = new PostgresTrafficQueryRepository(jdbc);
+
+        // filter by operationId
+        TrafficListResult result = repo.list(new TrafficQuery(null, null, null, null, null, null, null, "A614711381", null, 0, 50));
+        assertThat(result.total()).isEqualTo(1);
+        assertThat(result.items().get(0).operationId()).isEqualTo("A614711381");
+        assertThat(result.items().get(0).operationType()).isEqualTo("C2B");
+    }
+
+    @Test
     void statsWithOnlyPendingRowsHasNullLatency() {
         PostgresTrafficWriteRepository w = new PostgresTrafficWriteRepository(jdbc);
         // Insert a single request-only partial (PENDING, response_at null)
-        w.upsert(new TrafficTransaction("pend-1", "tx-pend", "ReqAuthPay", "owner-Z", "route-z", null, null,
+        w.upsert(new TrafficTransaction("pend-1", "tx-pend", "ReqAuthPay", null, null, "owner-Z", "route-z", null, null,
                 TrafficStatus.PENDING, t0, null, null, "local", "<req-pend/>", null, t0, t0));
 
         PostgresTrafficQueryRepository repo = new PostgresTrafficQueryRepository(jdbc);

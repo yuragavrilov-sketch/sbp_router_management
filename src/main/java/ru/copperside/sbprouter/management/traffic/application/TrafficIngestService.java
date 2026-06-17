@@ -26,6 +26,8 @@ public class TrafficIngestService {
                 event.correlationKey(),
                 event.txId(),
                 event.requestType(),
+                isRequest ? event.operationId() : null,   // operationId: set from request; response may be null
+                isRequest ? event.operationType() : null, // operationType: set from request; response may be null
                 isRequest ? event.terminalOwner() : null,
                 isRequest ? event.route() : null,
                 isRequest ? null : event.upstream(),

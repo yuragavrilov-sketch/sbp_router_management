@@ -28,13 +28,13 @@ class PostgresTrafficWriteRepositoryIT extends PostgresTestSupport {
     private final Instant now = Instant.parse("2026-05-29T09:00:05Z");
 
     private TrafficTransaction requestPartial() {
-        return new TrafficTransaction("corr-1", "tx-1", "ReqAuthPay", "owner-A", "route-x",
+        return new TrafficTransaction("corr-1", "tx-1", "ReqAuthPay", null, null, "owner-A", "route-x",
                 null, null, TrafficStatus.PENDING, Instant.parse("2026-05-29T09:00:00Z"), null, null,
                 "local", "<req/>", null, now, now);
     }
 
     private TrafficTransaction responsePartial() {
-        return new TrafficTransaction("corr-1", "tx-1", "ReqAuthPay", null, null,
+        return new TrafficTransaction("corr-1", "tx-1", "ReqAuthPay", null, null, null, null,
                 "infosrv", "Code=0", TrafficStatus.PENDING, null, Instant.parse("2026-05-29T09:00:00.040Z"), null,
                 "local", null, "<ans/>", now, now);
     }
@@ -103,7 +103,7 @@ class PostgresTrafficWriteRepositoryIT extends PostgresTestSupport {
         // 2. Late/duplicate request event with a DIFFERENT (bogus) timestamp arrives
         Instant lateTimestamp = Instant.parse("2099-01-01T00:00:00Z");
         TrafficTransaction lateRequest = new TrafficTransaction(
-                "corr-1", "tx-1", "ReqAuthPay", "owner-LATE", "route-LATE",
+                "corr-1", "tx-1", "ReqAuthPay", null, null, "owner-LATE", "route-LATE",
                 null, null, TrafficStatus.PENDING, lateTimestamp, null, null,
                 "local", "<late-req/>", null, now, now);
         repo.upsert(lateRequest);
@@ -119,6 +119,32 @@ class PostgresTrafficWriteRepositoryIT extends PostgresTestSupport {
                 .isEqualTo(originalLatency);
         assertThat(jdbc.queryForObject("select terminal_owner from traffic_transactions where correlation_id='corr-1'", String.class))
                 .isEqualTo("owner-A"); // must NOT be overwritten with "owner-LATE"
+    }
+
+    @Test
+    void operationFieldsPersistedAndCoalescedOnResponse() {
+        PostgresTrafficWriteRepository repo = new PostgresTrafficWriteRepository(jdbc);
+
+        // Request carries operationId/operationType; response has nulls
+        TrafficTransaction reqWithOp = new TrafficTransaction("corr-op", "tx-op", "ReqAuthPay",
+                "A614711381", "C2B", "owner-A", "route-x",
+                null, null, TrafficStatus.PENDING, Instant.parse("2026-05-29T09:00:00Z"), null, null,
+                "local", "<req/>", null, now, now);
+        TrafficTransaction respNoOp = new TrafficTransaction("corr-op", "tx-op", "ReqAuthPay",
+                null, null, null, null,
+                "infosrv", "Code=0", TrafficStatus.PENDING, null, Instant.parse("2026-05-29T09:00:00.040Z"), null,
+                "local", null, "<ans/>", now, now);
+
+        repo.upsert(reqWithOp);
+        repo.upsert(respNoOp);
+
+        // operation fields must be preserved (not overwritten by response nulls)
+        assertThat(jdbc.queryForObject("select operation_id from traffic_transactions where correlation_id='corr-op'", String.class))
+                .isEqualTo("A614711381");
+        assertThat(jdbc.queryForObject("select operation_type from traffic_transactions where correlation_id='corr-op'", String.class))
+                .isEqualTo("C2B");
+        assertThat(jdbc.queryForObject("select status from traffic_transactions where correlation_id='corr-op'", String.class))
+                .isEqualTo("RESPONDED");
     }
 
     /**
@@ -138,7 +164,7 @@ class PostgresTrafficWriteRepositoryIT extends PostgresTestSupport {
         // Late duplicate response with a different timestamp
         Instant lateResponseTs = Instant.parse("2099-12-31T23:59:59Z");
         TrafficTransaction lateResponse = new TrafficTransaction(
-                "corr-1", "tx-1", "ReqAuthPay", null, null,
+                "corr-1", "tx-1", "ReqAuthPay", null, null, null, null,
                 "infosrv-LATE", "Code=999", TrafficStatus.PENDING, null, lateResponseTs, null,
                 "local", null, "<late-ans/>", now, now);
         repo.upsert(lateResponse);

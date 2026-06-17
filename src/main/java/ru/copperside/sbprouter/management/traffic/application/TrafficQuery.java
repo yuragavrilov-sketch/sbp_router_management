@@ -10,6 +10,7 @@ public record TrafficQuery(
         String status,
         Instant from,
         Instant to,
+        String operationId,
         String q,
         int page,
         int size

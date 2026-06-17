@@ -6,6 +6,8 @@ public record TrafficTransaction(
         String correlationId,
         String txId,
         String requestType,
+        String operationId,
+        String operationType,
         String terminalOwner,
         String route,
         String upstream,

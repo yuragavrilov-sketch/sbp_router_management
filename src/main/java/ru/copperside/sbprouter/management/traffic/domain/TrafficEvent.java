@@ -6,6 +6,8 @@ public record TrafficEvent(
         TrafficDirection direction,
         String txId,
         String correlationId,
+        String operationId,
+        String operationType,
         String requestType,
         String env,
         Instant timestamp,

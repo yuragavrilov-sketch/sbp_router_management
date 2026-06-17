@@ -10,14 +10,14 @@ class TrafficEventTest {
 
     @Test
     void correlationKeyUsesCorrelationIdWhenPresent() {
-        TrafficEvent e = new TrafficEvent(TrafficDirection.REQUEST, "tx-1", "corr-1", "ReqAuthPay",
+        TrafficEvent e = new TrafficEvent(TrafficDirection.REQUEST, "tx-1", "corr-1", null, null, "ReqAuthPay",
                 "local", Instant.parse("2026-05-29T09:00:00Z"), "owner", "route", null, null, "<xml/>");
         assertThat(e.correlationKey()).isEqualTo("corr-1");
     }
 
     @Test
     void correlationKeyFallsBackToTxId() {
-        TrafficEvent e = new TrafficEvent(TrafficDirection.REQUEST, "tx-1", null, "ReqAuthPay",
+        TrafficEvent e = new TrafficEvent(TrafficDirection.REQUEST, "tx-1", null, null, null, "ReqAuthPay",
                 "local", Instant.parse("2026-05-29T09:00:00Z"), "owner", "route", null, null, "<xml/>");
         assertThat(e.correlationKey()).isEqualTo("tx-1");
     }

@@ -23,12 +23,12 @@ class TrafficIngestServiceTest {
     private final TrafficIngestService service = new TrafficIngestService(repo, clock);
 
     private TrafficEvent request(Instant ts) {
-        return new TrafficEvent(TrafficDirection.REQUEST, "tx-1", "corr-1", "ReqAuthPay",
+        return new TrafficEvent(TrafficDirection.REQUEST, "tx-1", "corr-1", null, null, "ReqAuthPay",
                 "local", ts, "owner-A", "route-x", null, null, "<req/>");
     }
 
     private TrafficEvent response(Instant ts) {
-        return new TrafficEvent(TrafficDirection.RESPONSE, "tx-1", "corr-1", "ReqAuthPay",
+        return new TrafficEvent(TrafficDirection.RESPONSE, "tx-1", "corr-1", null, null, "ReqAuthPay",
                 "local", ts, null, null, "infosrv", "Code=0", "<ans/>");
     }
 
@@ -89,7 +89,10 @@ class TrafficIngestServiceTest {
                     ? Duration.between(requestAt, responseAt).toMillis() : null;
             TrafficStatus status = responseAt != null ? TrafficStatus.RESPONDED : TrafficStatus.PENDING;
             Instant createdAt = e == null ? p.createdAt() : e.createdAt();
+            String operationId = coalesce(e == null ? null : e.operationId(), p.operationId());
+            String operationType = coalesce(e == null ? null : e.operationType(), p.operationType());
             store.put(p.correlationId(), new TrafficTransaction(p.correlationId(), txId, requestType,
+                    operationId, operationType,
                     terminalOwner, route, upstream, outcome, status, requestAt, responseAt, latency,
                     env, requestXml, responseXml, createdAt, p.updatedAt()));
         }
