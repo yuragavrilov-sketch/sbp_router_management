@@ -23,10 +23,13 @@ public class PostgresTrafficWriteRepository implements TrafficWriteRepository {
                     (correlation_id, tx_id, request_type, operation_id, operation_type,
                      terminal_owner, route, upstream, outcome,
                      status, request_at, response_at, latency_ms, env, request_xml, response_xml,
+                     fault_string,
                      created_at, updated_at)
                 values (?, ?, ?, ?, ?, ?, ?, ?, ?,
-                        case when ?::timestamptz is not null then 'RESPONDED' else 'PENDING' end,
-                        ?, ?, null, ?, ?, ?, ?, ?)
+                        case when ?::timestamptz is not null then (case when ?::boolean then 'RESPONDED_WITH_ERROR' else 'RESPONDED' end) else 'PENDING' end,
+                        ?, ?, null, ?, ?, ?,
+                        ?,
+                        ?, ?)
                 on conflict (correlation_id) do update set
                     tx_id = coalesce(excluded.tx_id, tt.tx_id),
                     request_type = coalesce(excluded.request_type, tt.request_type),
@@ -41,25 +44,30 @@ public class PostgresTrafficWriteRepository implements TrafficWriteRepository {
                     env = coalesce(excluded.env, tt.env),
                     request_xml = coalesce(excluded.request_xml, tt.request_xml),
                     response_xml = coalesce(excluded.response_xml, tt.response_xml),
+                    fault_string = coalesce(excluded.fault_string, tt.fault_string),
                     updated_at = excluded.updated_at,
                     status = case when coalesce(excluded.response_at, tt.response_at) is not null
-                                  then 'RESPONDED' else 'PENDING' end,
+                                  then (case when coalesce(excluded.fault_string, tt.fault_string) is not null or ?::boolean
+                                             then 'RESPONDED_WITH_ERROR' else 'RESPONDED' end)
+                                  else 'PENDING' end,
                     latency_ms = case
                         when coalesce(excluded.request_at, tt.request_at) is not null
                          and coalesce(excluded.response_at, tt.response_at) is not null
                         then (extract(epoch from (coalesce(excluded.response_at, tt.response_at)
                                                   - coalesce(excluded.request_at, tt.request_at))) * 1000)::bigint
                         else null end
-                where not (tt.status = 'RESPONDED'
+                where not (tt.status in ('RESPONDED', 'RESPONDED_WITH_ERROR')
                        and tt.request_at  is not null
                        and tt.response_at is not null)
                 """,
                 t.correlationId(), t.txId(), t.requestType(), t.operationId(), t.operationType(),
                 t.terminalOwner(), t.route(),
                 t.upstream(), t.outcome(),
-                ts(t.responseAt()),
+                ts(t.responseAt()), t.hasFault(),
                 ts(t.requestAt()), ts(t.responseAt()), t.env(), t.requestXml(), t.responseXml(),
-                ts(t.createdAt()), ts(t.updatedAt()));
+                t.faultString(),
+                ts(t.createdAt()), ts(t.updatedAt()),
+                t.hasFault());
     }
 
     private static Timestamp ts(java.time.Instant i) {

@@ -39,7 +39,7 @@ class TrafficControllerTest {
     void listReturnsEnvelope() throws Exception {
         Instant now = Instant.parse("2026-05-29T09:00:00Z");
         TrafficTransaction t = new TrafficTransaction("corr-1", "tx-1", "ReqAuthPay", null, null, "owner-A", "route-x",
-                "infosrv", "Code=0", TrafficStatus.RESPONDED, now, now.plusMillis(40), 40L, "local", null, null, now, now);
+                "infosrv", "Code=0", TrafficStatus.RESPONDED, now, now.plusMillis(40), 40L, "local", null, null, now, now, false, null);
         when(service.list(any())).thenReturn(new TrafficListResult(List.of(t), 1, 0, 50));
 
         mockMvc.perform(get("/internal/v1/sbp-router-management/traffic/transactions"))

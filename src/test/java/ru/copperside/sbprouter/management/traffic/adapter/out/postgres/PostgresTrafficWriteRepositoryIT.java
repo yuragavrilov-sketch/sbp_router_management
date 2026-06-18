@@ -30,13 +30,13 @@ class PostgresTrafficWriteRepositoryIT extends PostgresTestSupport {
     private TrafficTransaction requestPartial() {
         return new TrafficTransaction("corr-1", "tx-1", "ReqAuthPay", null, null, "owner-A", "route-x",
                 null, null, TrafficStatus.PENDING, Instant.parse("2026-05-29T09:00:00Z"), null, null,
-                "local", "<req/>", null, now, now);
+                "local", "<req/>", null, now, now, false, null);
     }
 
     private TrafficTransaction responsePartial() {
         return new TrafficTransaction("corr-1", "tx-1", "ReqAuthPay", null, null, null, null,
                 "infosrv", "Code=0", TrafficStatus.PENDING, null, Instant.parse("2026-05-29T09:00:00.040Z"), null,
-                "local", null, "<ans/>", now, now);
+                "local", null, "<ans/>", now, now, false, null);
     }
 
     @Test
@@ -105,7 +105,7 @@ class PostgresTrafficWriteRepositoryIT extends PostgresTestSupport {
         TrafficTransaction lateRequest = new TrafficTransaction(
                 "corr-1", "tx-1", "ReqAuthPay", null, null, "owner-LATE", "route-LATE",
                 null, null, TrafficStatus.PENDING, lateTimestamp, null, null,
-                "local", "<late-req/>", null, now, now);
+                "local", "<late-req/>", null, now, now, false, null);
         repo.upsert(lateRequest);
 
         // 3. The RESPONDED row must be completely unchanged
@@ -129,11 +129,11 @@ class PostgresTrafficWriteRepositoryIT extends PostgresTestSupport {
         TrafficTransaction reqWithOp = new TrafficTransaction("corr-op", "tx-op", "ReqAuthPay",
                 "A614711381", "C2B", "owner-A", "route-x",
                 null, null, TrafficStatus.PENDING, Instant.parse("2026-05-29T09:00:00Z"), null, null,
-                "local", "<req/>", null, now, now);
+                "local", "<req/>", null, now, now, false, null);
         TrafficTransaction respNoOp = new TrafficTransaction("corr-op", "tx-op", "ReqAuthPay",
                 null, null, null, null,
                 "infosrv", "Code=0", TrafficStatus.PENDING, null, Instant.parse("2026-05-29T09:00:00.040Z"), null,
-                "local", null, "<ans/>", now, now);
+                "local", null, "<ans/>", now, now, false, null);
 
         repo.upsert(reqWithOp);
         repo.upsert(respNoOp);
@@ -166,7 +166,7 @@ class PostgresTrafficWriteRepositoryIT extends PostgresTestSupport {
         TrafficTransaction lateResponse = new TrafficTransaction(
                 "corr-1", "tx-1", "ReqAuthPay", null, null, null, null,
                 "infosrv-LATE", "Code=999", TrafficStatus.PENDING, null, lateResponseTs, null,
-                "local", null, "<late-ans/>", now, now);
+                "local", null, "<late-ans/>", now, now, false, null);
         repo.upsert(lateResponse);
 
         assertThat(jdbc.queryForObject("select latency_ms from traffic_transactions where correlation_id='corr-1'", Long.class))

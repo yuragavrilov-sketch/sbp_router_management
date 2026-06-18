@@ -20,12 +20,14 @@ public record TrafficTransactionResponse(
         Long latencyMs,
         String env,
         String requestXml,
-        String responseXml
+        String responseXml,
+        String faultString
 ) {
     public static TrafficTransactionResponse from(TrafficTransaction t) {
         return new TrafficTransactionResponse(t.correlationId(), t.txId(), t.requestType(),
                 t.operationId(), t.operationType(),
                 t.terminalOwner(), t.route(), t.upstream(), t.outcome(), t.status().name(),
-                t.requestAt(), t.responseAt(), t.latencyMs(), t.env(), t.requestXml(), t.responseXml());
+                t.requestAt(), t.responseAt(), t.latencyMs(), t.env(), t.requestXml(), t.responseXml(),
+                t.faultString());
     }
 }

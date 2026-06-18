@@ -85,16 +85,23 @@ class TrafficIngestServiceTest {
             String env = coalesce(p.env(), e == null ? null : e.env());
             String requestXml = coalesce(p.requestXml(), e == null ? null : e.requestXml());
             String responseXml = coalesce(p.responseXml(), e == null ? null : e.responseXml());
+            boolean hasFault = p.hasFault() || (e != null && e.hasFault());
+            String faultString = coalesce(p.faultString(), e == null ? null : e.faultString());
             Long latency = (requestAt != null && responseAt != null)
                     ? Duration.between(requestAt, responseAt).toMillis() : null;
-            TrafficStatus status = responseAt != null ? TrafficStatus.RESPONDED : TrafficStatus.PENDING;
+            TrafficStatus status;
+            if (responseAt != null) {
+                status = hasFault ? TrafficStatus.RESPONDED_WITH_ERROR : TrafficStatus.RESPONDED;
+            } else {
+                status = TrafficStatus.PENDING;
+            }
             Instant createdAt = e == null ? p.createdAt() : e.createdAt();
             String operationId = coalesce(e == null ? null : e.operationId(), p.operationId());
             String operationType = coalesce(e == null ? null : e.operationType(), p.operationType());
             store.put(p.correlationId(), new TrafficTransaction(p.correlationId(), txId, requestType,
                     operationId, operationType,
                     terminalOwner, route, upstream, outcome, status, requestAt, responseAt, latency,
-                    env, requestXml, responseXml, createdAt, p.updatedAt()));
+                    env, requestXml, responseXml, createdAt, p.updatedAt(), hasFault, faultString));
         }
 
         private static <T> T coalesce(T a, T b) {

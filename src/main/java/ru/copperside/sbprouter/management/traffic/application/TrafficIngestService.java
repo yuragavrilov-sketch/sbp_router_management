@@ -40,7 +40,10 @@ public class TrafficIngestService {
                 isRequest ? event.body() : null,        // requestXml
                 isRequest ? null : event.body(),        // responseXml
                 now,
-                now);
+                now,
+                !isRequest && event.hasFault(),        // hasFault: only from response
+                !isRequest ? event.faultString() : null // faultString: only from response
+        );
         repository.upsert(partial);
     }
 }

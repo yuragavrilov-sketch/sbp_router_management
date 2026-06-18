@@ -44,7 +44,7 @@ public class PostgresTrafficQueryRepository implements TrafficQueryRepository {
         pageArgs.add(offset);
         List<TrafficTransaction> rows = jdbc.query(
                 "select correlation_id, tx_id, request_type, operation_id, operation_type, "
-                        + "terminal_owner, route, upstream, outcome, status, "
+                        + "terminal_owner, route, upstream, outcome, status, fault_string, "
                         + "request_at, response_at, latency_ms, env, created_at, updated_at "
                         + "from traffic_transactions" + where + " order by created_at desc limit ? offset ?",
                 LIST_MAPPER, pageArgs.toArray());
@@ -63,7 +63,7 @@ public class PostgresTrafficQueryRepository implements TrafficQueryRepository {
         String w = " where created_at >= ? and created_at < ?";
 
         Map<String, Object> totals = jdbc.queryForMap(
-                "select count(*) total, count(*) filter (where status='RESPONDED') responded, "
+                "select count(*) total, count(*) filter (where status in ('RESPONDED','RESPONDED_WITH_ERROR')) responded, "
                         + "count(*) filter (where status='PENDING') pending from traffic_transactions" + w, window);
 
         Map<String, Long> byOutcome = groupCounts(
@@ -125,6 +125,9 @@ public class PostgresTrafficQueryRepository implements TrafficQueryRepository {
 
     private static TrafficTransaction map(ResultSet rs, boolean withXml) throws SQLException {
         Long latency = (Long) rs.getObject("latency_ms");
+        String status = rs.getString("status");
+        boolean hasFault = "RESPONDED_WITH_ERROR".equals(status);
+        String faultString = rs.getString("fault_string");
         return new TrafficTransaction(
                 rs.getString("correlation_id"),
                 rs.getString("tx_id"),
@@ -135,7 +138,7 @@ public class PostgresTrafficQueryRepository implements TrafficQueryRepository {
                 rs.getString("route"),
                 rs.getString("upstream"),
                 rs.getString("outcome"),
-                TrafficStatus.valueOf(rs.getString("status")),
+                TrafficStatus.valueOf(status),
                 instant(rs.getTimestamp("request_at")),
                 instant(rs.getTimestamp("response_at")),
                 latency,
@@ -143,7 +146,9 @@ public class PostgresTrafficQueryRepository implements TrafficQueryRepository {
                 withXml ? rs.getString("request_xml") : null,
                 withXml ? rs.getString("response_xml") : null,
                 instant(rs.getTimestamp("created_at")),
-                instant(rs.getTimestamp("updated_at")));
+                instant(rs.getTimestamp("updated_at")),
+                hasFault,
+                faultString);
     }
 
     private static Instant instant(Timestamp ts) {

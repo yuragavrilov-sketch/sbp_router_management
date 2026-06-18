@@ -1,5 +1,6 @@
 package ru.copperside.sbprouter.management.traffic.adapter.in.messaging;
 
+import ru.copperside.sbprouter.management.traffic.application.FaultParser;
 import ru.copperside.sbprouter.management.traffic.domain.TrafficDirection;
 import ru.copperside.sbprouter.management.traffic.domain.TrafficEvent;
 
@@ -8,6 +9,8 @@ import java.time.Instant;
 import java.util.Map;
 
 public class TrafficEventMapper {
+
+    private final FaultParser faultParser = new FaultParser();
 
     public TrafficEvent map(String key, Map<String, String> headers, byte[] body) {
         TrafficDirection direction = "response".equalsIgnoreCase(headers.get("direction"))
@@ -19,6 +22,16 @@ public class TrafficEventMapper {
         }
         String operationId = blankToNull(headers.get("operationId"));
         String operationType = blankToNull(headers.get("operationType"));
+        String bodyStr = body == null ? null : new String(body, StandardCharsets.UTF_8);
+
+        boolean hasFault = false;
+        String faultString = null;
+        if (direction == TrafficDirection.RESPONSE) {
+            FaultParser.Result fault = faultParser.parse(body);
+            hasFault = fault.hasFault();
+            faultString = fault.faultString();
+        }
+
         return new TrafficEvent(
                 direction,
                 txId,
@@ -32,7 +45,9 @@ public class TrafficEventMapper {
                 blankToNull(headers.get("route")),
                 blankToNull(headers.get("upstream")),
                 blankToNull(headers.get("outcome")),
-                body == null ? null : new String(body, StandardCharsets.UTF_8));
+                bodyStr,
+                hasFault,
+                faultString);
     }
 
     private static Instant parseInstant(String value) {

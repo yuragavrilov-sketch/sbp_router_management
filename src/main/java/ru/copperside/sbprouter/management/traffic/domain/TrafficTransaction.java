@@ -20,6 +20,8 @@ public record TrafficTransaction(
         String requestXml,
         String responseXml,
         Instant createdAt,
-        Instant updatedAt
+        Instant updatedAt,
+        boolean hasFault,
+        String faultString
 ) {
 }
